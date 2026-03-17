@@ -14,7 +14,13 @@
 /**
  * Object interaction types and their behaviors
  */
-export type ObjectInteractionType = "start-lesson" | "review-course";
+export type ObjectInteractionType =
+  | "start-lesson"
+  | "review-course"
+  | "practice-exercise"
+  | "reference-materials"
+  | "course-goals"
+  | "leave-classroom";
 
 /**
  * Positioned relative to inner play area center.
@@ -82,6 +88,19 @@ export interface InteriorObject {
    * Example: { courseId: "ai-foundations" } for chalkboard
    */
   metadata?: Record<string, any>;
+
+  /**
+   * Optional: Whether this object blocks player movement (default: false)
+   * Objects marked true will use collision detection to block/slide player
+   */
+  isCollider?: boolean;
+
+  /**
+   * Optional: Distance in pixels for soft-collision sliding (default: 5)
+   * Only relevant if isCollider is true
+   * Higher values = softer sliding, player can move closer to object
+   */
+  collisionMargin?: number;
 }
 
 /**

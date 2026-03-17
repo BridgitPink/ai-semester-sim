@@ -4,6 +4,7 @@ import type { InteriorLayout } from "../systems/interiorLayoutSystem";
 import {
   checkObjectProximity,
   handleObjectInteraction,
+  checkCollisionsAndSlide,
 } from "../systems/interiorObjectSystem";
 import type { InteriorObject } from "../types/interiorObject";
 import { useGameStore } from "../../store/useGameStore";
@@ -101,8 +102,22 @@ export abstract class BuildingSceneBase extends Phaser.Scene {
       this.player.body.setVelocity(0, 0);
     }
 
-    // Clamp player position to inner play area bounds
-    const clamped = this.layout.clampToBounds(this.player.x, this.player.y);
+    // Calculate next position (current + velocity delta)
+    let nextX = this.player.x + (this.player.body.velocity.x * 16.67) / 1000; // ~16.67ms per frame at 60fps
+    let nextY = this.player.y + (this.player.body.velocity.y * 16.67) / 1000;
+
+    // Check collisions with interior objects and apply soft-sliding
+    const collisionAdjusted = checkCollisionsAndSlide(
+      this.interiorObjects,
+      this.layout,
+      nextX,
+      nextY
+    );
+    nextX = collisionAdjusted.x;
+    nextY = collisionAdjusted.y;
+
+    // Clamp player position to inner play area bounds (safety net)
+    const clamped = this.layout.clampToBounds(nextX, nextY);
     this.player.setPosition(clamped.x, clamped.y);
   }
 
