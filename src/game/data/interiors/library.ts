@@ -120,6 +120,45 @@ export const LIBRARY_OBJECTS: InteriorObject[] = [
       description: "Find campus updates and library guidance.",
     },
   },
+  // NPC: Prof. Kim — library teacher, standing to the right of the kiosk.
+  {
+    id: "library-npc-prof-kim",
+    building: "library",
+    name: "Prof. Kim",
+    relativeX: 0.82,
+    relativeY: 0,
+    width: 32,
+    height: 32,
+    interactionType: "talk-npc",
+    label: "Prof. Kim",
+    color: 0x7a9cc0,
+    isCollider: false,
+    interactionRange: 60,
+    metadata: {
+      npcId: "prof-kim-library",
+      description: "Prof. Kim is running study hours. Patient and helpful.",
+    },
+  },
+  // NPC: Lin — library student, wanders near the study carrels.
+  {
+    id: "library-npc-lin",
+    building: "library",
+    name: "Lin",
+    relativeX: -0.04,
+    relativeY: 0,
+    width: 28,
+    height: 28,
+    interactionType: "talk-npc",
+    label: "Lin",
+    color: 0x8ecae6,
+    isCollider: false,
+    interactionRange: 65,
+    metadata: {
+      npcId: "lin-library",
+      wandering: true,
+      description: "Lin is quietly methodical. Good for a focused study conversation.",
+    },
+  },
   createInteriorExitObject("library"),
 ];
 

@@ -152,6 +152,44 @@ export const ADVISOR_OFFICE_OBJECTS: InteriorObject[] = [
     description: "Degree plans, deadlines, and student resources.",
   },
 },
+  // NPC: Dr. Chen — advisor, available for student meetings.
+  {
+    id: "advisor-npc-dr-chen",
+    building: "advisor-office",
+    name: "Dr. Chen",
+    relativeX: 0.55,
+    relativeY: -0.65,
+    width: 32,
+    height: 32,
+    interactionType: "talk-npc",
+    label: "Dr. Chen",
+    color: 0x7a9cc0,
+    isCollider: false,
+    interactionRange: 65,
+    metadata: {
+      npcId: "dr-chen-advisor",
+      description: "Dr. Chen is available for advising. Structured and calm.",
+    },
+  },
+  // NPC: Ms. Garcia — advisor, standing between the two rows of advisor desks.
+  {
+    id: "advisor-npc-ms-garcia",
+    building: "advisor-office",
+    name: "Ms. Garcia",
+    relativeX: 0.62,
+    relativeY: -0.1,
+    width: 32,
+    height: 32,
+    interactionType: "talk-npc",
+    label: "Ms. Garcia",
+    color: 0x7a9cc0,
+    isCollider: false,
+    interactionRange: 65,
+    metadata: {
+      npcId: "ms-garcia-advisor",
+      description: "Ms. Garcia is warm and direct. Great for course guidance.",
+    },
+  },
   // EXIT
   createInteriorExitObject("advisor-office"),
 ];

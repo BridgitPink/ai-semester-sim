@@ -239,6 +239,21 @@ export function handleObjectInteraction(object: InteriorObject): void {
   };
 
   switch (object.interactionType) {
+    case "talk-npc": {
+      const npcId = object.metadata?.npcId;
+      if (typeof npcId !== "string" || npcId.length === 0) {
+        openInfo(
+          object.name,
+          "Can't talk right now",
+          "This interaction is missing an NPC reference."
+        );
+        break;
+      }
+
+      store.openNpcPanel(npcId);
+      break;
+    }
+
     case "start-lesson": {
       // Teacher desk is schedule-driven:
       // - Before completing today's required lesson: open that lesson only.

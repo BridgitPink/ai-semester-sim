@@ -1,48 +1,61 @@
 import { useGameStore } from "../../store/useGameStore";
+import { getNpcInteractionView, performNpcInteraction } from "../../game/systems/npcSystem";
 
 interface InteractionPanelProps {
-  npcName: string;
+  npcId: string;
 }
 
-export function InteractionPanel({ npcName }: InteractionPanelProps) {
-  const { closePanel, npcRelationships, updateNpcRelationship } = useGameStore();
+export function InteractionPanel({ npcId }: InteractionPanelProps) {
+  const { closePanel, npcRelationshipState } = useGameStore();
 
-  const relationshipPoints = npcRelationships[npcName] || 0;
+  const relationship = npcRelationshipState[npcId] ?? { affinity: 50, familiarity: 0 };
+  const view = getNpcInteractionView(npcId);
 
   const handleChat = () => {
-    // Stub: In future, this would trigger dialogue or learning interactions
-    updateNpcRelationship(npcName, 5); // Small relationship boost for interaction
+    performNpcInteraction(npcId);
     closePanel();
   };
 
   return (
     <>
       <div className="modal-header">
-        <h1>{npcName}</h1>
-        <p>You're talking to someone</p>
+        <h1>{view?.name ?? npcId}</h1>
+        <p>{view?.subtitle ?? "You're talking to someone"}</p>
       </div>
 
       <div className="modal-body">
         <div className="npc-interaction">
           <div className="npc-relationship">
             <p style={{ marginBottom: "8px" }}>
-              <strong>Relationship:</strong> {relationshipPoints} points
+              <strong>Relationship:</strong> {relationship.affinity} affinity
             </p>
             <div className="relationship-bar">
               <div
                 className="relationship-fill"
                 style={{
-                  width: `${Math.min(100, (relationshipPoints / 100) * 100)}%`,
+                  width: `${Math.min(100, relationship.affinity)}%`,
                 }}
               />
             </div>
+            <p style={{ marginTop: "8px", color: "var(--color-text-secondary)", fontSize: "13px" }}>
+              Familiarity: {relationship.familiarity}
+            </p>
           </div>
 
           <div style={{ marginTop: "20px", marginBottom: "16px" }}>
-            <p style={{ color: "var(--color-text-secondary)" }}>
-              This person seems interested in talking with you. You could chat and learn
-              more about them, or ask for their perspective on your studies.
-            </p>
+            {view?.lines?.length ? (
+              <div style={{ color: "var(--color-text-secondary)" }}>
+                {view.lines.map((line) => (
+                  <p key={line} style={{ marginBottom: "8px" }}>
+                    {line}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: "var(--color-text-secondary)" }}>
+                They seem interested in talking with you.
+              </p>
+            )}
           </div>
         </div>
       </div>

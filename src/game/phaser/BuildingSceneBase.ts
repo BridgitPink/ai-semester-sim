@@ -301,11 +301,17 @@ export abstract class BuildingSceneBase extends Phaser.Scene {
    */
   protected exitBuilding() {
     const store = useGameStore.getState();
+    // Save player position BEFORE calling exitBuilding(), which clears it from the store.
+    // GameScene.init() will receive this and restore the player at the correct spot.
+    const savedPos = store.playerPosition;
     store.exitBuilding();
 
-    // Return to GameScene with fade transition
+    // Return to GameScene with fade transition, restoring player's last overworld position.
     this.cameras.main.fade(300, 0, 0, 0, false, () => {
-      this.scene.start("GameScene");
+      this.scene.start(
+        "GameScene",
+        savedPos ? { playerX: savedPos.x, playerY: savedPos.y } : {}
+      );
     });
   }
 

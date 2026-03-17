@@ -21,6 +21,7 @@ export type ObjectInteractionType =
   | "reference-materials"
   | "course-goals"
   | "leave-classroom"
+  | "talk-npc"
   | "sleep-confirm"
   | "study"
   | "storage"
@@ -97,6 +98,7 @@ export interface InteriorObject {
    */
   metadata?: Record<string, unknown> & {
     description?: string;
+    npcId?: string;
   };
 
   /**

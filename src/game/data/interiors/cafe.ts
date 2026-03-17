@@ -126,6 +126,64 @@ export const CAFE_OBJECTS: InteriorObject[] = [
     },
   },
 
+  // NPC: Jade — cafe worker, behind the left counter.
+  {
+    id: "cafe-npc-jade",
+    building: "cafe",
+    name: "Jade",
+    relativeX: -0.18,
+    relativeY: -0.88,
+    width: 28,
+    height: 28,
+    interactionType: "talk-npc",
+    label: "Jade",
+    color: 0xffb347,
+    isCollider: false,
+    interactionRange: 65,
+    metadata: {
+      npcId: "jade-worker",
+      description: "Jade keeps the cafe running. Friendly and efficient.",
+    },
+  },
+  // NPC: Omar — cafe worker, behind the right counter.
+  {
+    id: "cafe-npc-omar",
+    building: "cafe",
+    name: "Omar",
+    relativeX: 0.18,
+    relativeY: -0.88,
+    width: 28,
+    height: 28,
+    interactionType: "talk-npc",
+    label: "Omar",
+    color: 0xffb347,
+    isCollider: false,
+    interactionRange: 65,
+    metadata: {
+      npcId: "omar-worker",
+      description: "Omar is calm and observant. Good for a quick chat.",
+    },
+  },
+  // NPC: Miles — social student, wanders near the cafe tables.
+  {
+    id: "cafe-npc-miles",
+    building: "cafe",
+    name: "Miles",
+    relativeX: -0.5,
+    relativeY: -0.3,
+    width: 28,
+    height: 28,
+    interactionType: "talk-npc",
+    label: "Miles",
+    color: 0x8ecae6,
+    isCollider: false,
+    interactionRange: 65,
+    metadata: {
+      npcId: "miles-cafe",
+      wandering: true,
+      description: "Miles is the social hub of the class. Always knows what's going on.",
+    },
+  },
   createInteriorExitObject("cafe"),
 ];
 

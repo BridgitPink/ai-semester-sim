@@ -140,6 +140,49 @@ export const LAB_OBJECTS: InteriorObject[] = [
     },
   },
 
+  // NPC: Quinn — lab tech, wanders between the project board and lab tech station.
+  {
+    id: "lab-npc-quinn",
+    building: "lab",
+    name: "Quinn",
+    relativeX: 0.75,
+    relativeY: -0.35,
+    width: 28,
+    height: 28,
+    interactionType: "talk-npc",
+    label: "Quinn",
+    color: 0xb0c4de,
+    isCollider: false,
+    interactionRange: 65,
+    metadata: {
+      npcId: "quinn-lab-tech",
+      wandering: true,
+      wanderRadius: 60,
+      description: "Quinn keeps the lab running. Safety-first, always.",
+    },
+  },
+  // NPC: Niko — lab-focused student, wanders between the two workbenches.
+  {
+    id: "lab-npc-niko",
+    building: "lab",
+    name: "Niko",
+    relativeX: 0.0,
+    relativeY: 0.0,
+    width: 28,
+    height: 28,
+    interactionType: "talk-npc",
+    label: "Niko",
+    color: 0x8ecae6,
+    isCollider: false,
+    interactionRange: 65,
+    metadata: {
+      npcId: "niko-lab",
+      wandering: true,
+      wanderRadius: 55,
+      description: "Niko is always iterating on something. Curious and hands-on.",
+    },
+  },
+
   {
     id: "lab-exit",
     building: "lab",

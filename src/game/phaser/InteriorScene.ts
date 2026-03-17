@@ -5,10 +5,18 @@ import { getObjectWorldPosition } from "../systems/interiorObjectSystem";
 import { isClassroomOpen } from "../systems/timeSystem";
 import { BuildingSceneBase } from "./BuildingSceneBase";
 import type { InteriorObject } from "../types/interiorObject";
+import { decideNpcNow } from "../systems/npcSystem";
 
 export class InteriorScene extends BuildingSceneBase {
   private objectLabels: Map<string, Phaser.GameObjects.Text> = new Map();
   private objectHints: Map<string, Phaser.GameObjects.Text> = new Map();
+
+  // Wandering NPC tracking
+  private npcWanderingSprites: Map<string, Phaser.GameObjects.Rectangle> = new Map();
+  private npcWanderAnchors: Map<string, { wx: number; wy: number }> = new Map();
+  private npcWanderTargets: Map<string, { tx: number; ty: number }> = new Map();
+  private npcWanderRadii: Map<string, number> = new Map();
+  private lastNpcWanderTick: number = -1;
 
   constructor() {
     super("InteriorScene");
@@ -58,18 +66,26 @@ export class InteriorScene extends BuildingSceneBase {
    * For classroom: remove lesson-related objects if classroom is closed
    */
   private filterObjectsByAvailability(buildingId: string, objects: InteriorObject[]): InteriorObject[] {
-    if (buildingId !== "classroom") {
-      return objects; // No filtering for other buildings
-    }
+    // Pass 1 — schedule-aware NPC filter (all buildings).
+    // A talk-npc object is only shown when the NPC's current AI decision routes them here.
+    const withNpcs = objects.filter((obj) => {
+      if (obj.interactionType !== "talk-npc") return true;
+      const npcId = obj.metadata?.npcId;
+      if (!npcId) return true;
+      try {
+        const decision = decideNpcNow(npcId);
+        return decision?.locationId === buildingId;
+      } catch {
+        return true; // keep on any error to avoid accidental removal
+      }
+    });
 
-    // If classroom is open, include all objects
-    if (isClassroomOpen()) {
-      return objects;
-    }
+    // Pass 2 — classroom lesson filter (Phase 4, unchanged).
+    if (buildingId !== "classroom") return withNpcs;
+    if (isClassroomOpen()) return withNpcs;
 
-    // Classroom is closed: remove lesson-related objects
     const lessonRelatedTypes = ["start-lesson", "review-course", "course-goals"];
-    return objects.filter((obj) => !lessonRelatedTypes.includes(obj.interactionType));
+    return withNpcs.filter((obj) => !lessonRelatedTypes.includes(obj.interactionType));
   }
 
   /**
@@ -107,6 +123,11 @@ export class InteriorScene extends BuildingSceneBase {
   private renderInteriorObjects() {
     this.objectLabels.clear();
     this.objectHints.clear();
+    this.npcWanderingSprites.clear();
+    this.npcWanderAnchors.clear();
+    this.npcWanderTargets.clear();
+    this.npcWanderRadii.clear();
+    this.lastNpcWanderTick = -1;
 
     for (const object of this.interiorObjects) {
       const worldPos = getObjectWorldPosition(object, this.layout);
@@ -120,6 +141,14 @@ export class InteriorScene extends BuildingSceneBase {
         rect.setStrokeStyle(3, 0xffff99, 0.8);
       } else {
         rect.setStrokeStyle(2, 0xffffff, 0.5);
+      }
+
+      if (object.metadata?.wandering === true) {
+        this.npcWanderingSprites.set(object.id, rect);
+        this.npcWanderAnchors.set(object.id, { wx: worldPos.x, wy: worldPos.y });
+        this.npcWanderTargets.set(object.id, { tx: worldPos.x, ty: worldPos.y });
+        const r = typeof object.metadata.wanderRadius === "number" ? object.metadata.wanderRadius : 28;
+        this.npcWanderRadii.set(object.id, r);
       }
 
       const label = this.add.text(worldPos.x, worldPos.y - object.height / 2 - 20, object.label, {
@@ -148,6 +177,48 @@ export class InteriorScene extends BuildingSceneBase {
       hint.setDepth(5);
       hint.setVisible(false);
       this.objectHints.set(object.id, hint);
+    }
+  }
+
+  update() {
+    super.update();
+    this.tickNpcWander();
+  }
+
+  private tickNpcWander() {
+    const WANDER_INTERVAL = 2500; // ms between target picks
+    const LERP_SPEED = 0.04;      // fraction per frame toward target
+
+    const tick = Math.floor(this.time.now / WANDER_INTERVAL);
+    if (tick !== this.lastNpcWanderTick) {
+      this.lastNpcWanderTick = tick;
+      let i = 0;
+      for (const [id, anchor] of this.npcWanderAnchors) {
+        const radius = this.npcWanderRadii.get(id) ?? 28;
+        // Deterministic pseudo-random angle and distance
+        const seed = tick * 31337 + id.charCodeAt(0) * 421 + i * 199;
+        const angle = ((seed % 10000) / 10000) * Math.PI * 2;
+        const dist = radius * (((seed % 1000) / 1000) * 0.7 + 0.3);
+        this.npcWanderTargets.set(id, {
+          tx: anchor.wx + Math.cos(angle) * dist,
+          ty: anchor.wy + Math.sin(angle) * dist,
+        });
+        i++;
+      }
+    }
+
+    for (const [id, sprite] of this.npcWanderingSprites) {
+      const target = this.npcWanderTargets.get(id);
+      if (!target) continue;
+      sprite.setPosition(
+        Phaser.Math.Linear(sprite.x, target.tx, LERP_SPEED),
+        Phaser.Math.Linear(sprite.y, target.ty, LERP_SPEED)
+      );
+      // Keep label and hint anchored to the drifting sprite
+      const label = this.objectLabels.get(id);
+      const hint = this.objectHints.get(id);
+      if (label) label.setPosition(sprite.x, sprite.y - sprite.height / 2 - 20);
+      if (hint) hint.setPosition(sprite.x, sprite.y + sprite.height / 2 + 15);
     }
   }
 
@@ -182,6 +253,8 @@ export class InteriorScene extends BuildingSceneBase {
         return "[E] Course goals";
       case "leave-classroom":
         return "[E] Exit";
+      case "talk-npc":
+        return "[E] Talk";
       case "sleep-confirm":
         return "[E] Sleep";
       case "study":

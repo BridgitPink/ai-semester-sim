@@ -1,92 +1,95 @@
 /**
  * NPC AI System
- * Manages NPC mood updates, routine behavior, and relationship tracking
+ * Manages NPC mood updates, routine behavior, and relationship tracking.
+ *
+ * These functions serve as the integration layer between game systems and
+ * the real deterministic NPC logic in npcSystem.ts. They are future-ready
+ * hook points for AI-driven upgrades without changing call sites.
  */
 
-import type { NpcProfile, NpcMood } from "../types/npc";
+import type { NpcDefinition, NpcMood } from "../types/npc";
+import {
+  getNpcInteractionView,
+  performNpcInteraction,
+  decideNpcNow,
+} from "./npcSystem";
+import { useGameStore } from "../../store/useGameStore";
 
 /**
- * Get a simple mood-based line for an NPC (used for quick feedback)
- * TODO: Expand with richer context from AI system
+ * Get a context-aware line for an NPC via the real dialogue pipeline.
+ * Falls back to a mood description if no dialogue is available yet.
  */
-export function getNpcLine(npc: NpcProfile): string {
-  switch (npc.mood) {
-    case "focused":
-      return `${npc.name} is locked in and thinking about project work.`;
-    case "tired":
-      return `${npc.name} looks exhausted and needs a break.`;
-    case "social":
-      return `${npc.name} seems ready to talk and share ideas.`;
-    case "stressed":
-      return `${npc.name} looks overwhelmed by deadlines.`;
-    default:
-      return `${npc.name} is hanging around campus.`;
-  }
+export function getNpcLine(npc: NpcDefinition): string {
+  // Delegate to the real interaction view for context-aware dialogue.
+  const view = getNpcInteractionView(npc.id);
+  if (view?.lines?.[0]) return view.lines[0];
+
+  // Fallback: simple mood description.
+  const moodLine: Record<NpcMood, string> = {
+    focused: `${npc.name} is locked in and thinking.`,
+    tired: `${npc.name} looks exhausted and needs a break.`,
+    social: `${npc.name} seems ready to talk and share ideas.`,
+    stressed: `${npc.name} looks overwhelmed by deadlines.`,
+    relaxed: `${npc.name} is calm and taking things one step at a time.`,
+  };
+  return moodLine[npc.defaultMood] ?? `${npc.name} is hanging around campus.`;
 }
 
 /**
- * Update an NPC's mood based on game context
- * TODO: Implement mood rules based on time of day, player interactions, semester stress
- * Mood affects NPC dialogue and player relationship changes
+ * Return the NPC's current mood from the deterministic decision pipeline.
  */
-export function updateNpcMood(_npcId: string, _context: { week?: number; playerAction?: string }): NpcMood {
-  const moods: NpcMood[] = ["focused", "tired", "social", "stressed"];
-  const seed = `${_npcId}:${_context.week ?? 0}:${_context.playerAction ?? "idle"}`;
-  const hash = seed.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  return moods[hash % moods.length];
+export function updateNpcMood(npcId: string, _context: { week?: number; playerAction?: string }): NpcMood {
+  return decideNpcNow(npcId)?.mood ?? "focused";
 }
 
 /**
- * Get an NPC's location and routine for current week
- * TODO: Return routine data (where NPC is, what time, what they're doing)
+ * Get an NPC's current location and activity from the AI decision pipeline.
  */
 export function getNpcRoutine(
-  _npcId: string
+  npcId: string
 ): { locationId: string; activity: string; description: string } {
-  const isLibraryRotation = _npcId.charCodeAt(0) % 2 === 0;
-
+  const decision = decideNpcNow(npcId);
+  if (!decision) return { locationId: "dorm", activity: "relaxing", description: "Taking it easy for now." };
   return {
-    locationId: isLibraryRotation ? "library" : "classroom",
-    activity: isLibraryRotation ? "researching" : "studying",
-    description: isLibraryRotation ? "Digging through reference materials" : "Working on assignments",
+    locationId: decision.locationId,
+    activity: decision.activity,
+    description: `${decision.name} is ${decision.activity} at the ${decision.locationId.replace(/-/g, " ")}.`,
   };
 }
 
 /**
- * Handle player interaction with an NPC
- * TODO: Generate context-aware dialogue based on:
- * - NPC mood and traits
- * - Current course/lesson topic
- * - Relationship level
- * - Player stats (energy, stress, etc)
+ * Handle player interaction with an NPC via the real interaction pipeline.
+ * Applies relationship and stat effects to the store.
  */
-export function interactWithNpc(_npcId: string): { dialogue: string; relationshipDelta: number } {
+export function interactWithNpc(npcId: string): { dialogue: string; relationshipDelta: number } {
+  const outcome = performNpcInteraction(npcId);
+  const view = getNpcInteractionView(npcId);
   return {
-    dialogue: `Hey! How's your semester going? I was just thinking about ${_npcId.replace(/-/g, " ")}.`,
-    relationshipDelta: 5, // positive interaction
+    dialogue: view?.lines?.[0] ?? `Good to connect with you.`,
+    relationshipDelta: outcome.relationshipDelta,
   };
 }
 
 /**
- * Decrease all NPC relationships slightly over time (week progression)
- * Players must maintain relationships through interaction
- * TODO: Implement relationship decay based on personality traits
+ * Apply small passive affinity decay to encourage players to maintain relationships.
+ * Call once per week advancement.
  */
-export function updateNpcRelationshipsOverWeek() {
-  // TODO: Apply decay formula
-  // High-sociability NPCs = slower decay
-  // Low-sociability NPCs = faster decay
-  // Player can combat decay through interaction
+export function updateNpcRelationshipsOverWeek(): void {
+  const store = useGameStore.getState();
+  const DECAY = 1;
+  Object.keys(store.npcRelationshipState).forEach((npcId) => {
+    const rel = store.npcRelationshipState[npcId];
+    // Only decay NPCs the player has interacted with (familiarity > 0).
+    if (rel.familiarity > 0 || rel.affinity > 50) {
+      store.updateNpcRelationship(npcId, -DECAY);
+    }
+  });
 }
 
 /**
- * Get AI-driven dialogue for an NPC based on context
- * TODO: Could eventually call LLM for dynamic dialogue, or use data-driven lookup
+ * Get dialogue for an NPC. Future hook point for LLM or structured dialogue.
  */
-export function generateNpcDialogue(_npcId: string, _topic?: string): string {
-  if (_topic) {
-    return `${_npcId.replace(/-/g, " ")} is focused on ${_topic} this semester.`;
-  }
-
-  return `${_npcId.replace(/-/g, " ")} is focused on studies this semester.`;
+export function generateNpcDialogue(npcId: string, _topic?: string): string {
+  const view = getNpcInteractionView(npcId);
+  return view?.lines?.join(" ") ?? `${npcId.replace(/-/g, " ")} is focused on their studies this semester.`;
 }

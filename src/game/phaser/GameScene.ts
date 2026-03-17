@@ -1,11 +1,16 @@
 import Phaser from "phaser";
 import { locations } from "../data/locations";
-import { npcProfiles } from "../data/npcs";
 import { useGameStore, type LocationId } from "../../store/useGameStore";
 import type { LocationProfile } from "../data/locations";
 import { computeResponsiveLayout } from "../systems/layoutSystem";
 import { validateNpcSpawn } from "../systems/npcPlacementSystem";
 import { getCurrentDayType, isClassroomOpen, isLabOpen } from "../systems/timeSystem";
+import {
+  decideNpcNow,
+  getVisibleOverworldNpcIds,
+  NPC_LOCATION_ANCHORS,
+  pickAnchorSlotIndex,
+} from "../systems/npcSystem";
 import type { InteriorObject } from "../types/interiorObject";
 
 type PlayerRect = Phaser.GameObjects.Rectangle & {
@@ -29,6 +34,9 @@ export class GameScene extends Phaser.Scene {
   private player!: PlayerRect;
   private restoredPlayerPos?: { x: number; y: number };
 
+  private lastNpcSyncKey = "";
+  private lastNpcWanderTick = -1;
+
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasdKeys!: {
     w: Phaser.Input.Keyboard.Key;
@@ -37,12 +45,21 @@ export class GameScene extends Phaser.Scene {
     d: Phaser.Input.Keyboard.Key;
   };
 
-  private npcSprites: {
-    sprite: NpcRect;
-    label: Phaser.GameObjects.Text;
-    name: string;
-    npcId: string;
-  }[] = [];
+  private npcSprites = new Map<
+    string,
+    {
+      sprite: NpcRect;
+      label: Phaser.GameObjects.Text;
+      name: string;
+      npcId: string;
+      collider: Phaser.Physics.Arcade.Collider;
+      anchorX: number;
+      anchorY: number;
+      anchorKey: string;
+      targetX: number;
+      targetY: number;
+    }
+  >();
 
   private locationZones: {
     zone: LocationZone;
@@ -67,6 +84,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    // Reset all scene-local collections at the top of create().
+    // Phaser reuses the same class instance when scene.start() is called, so
+    // stale destroyed-sprite references in these Maps/arrays would cause NPCs
+    // to silently disappear after returning from a building interior.
+    this.npcSprites = new Map();
+    this.locationZones = [];
+    this.buildings = [];
+    this.lastNpcSyncKey = "";
+    this.lastNpcWanderTick = -1;
+
     this.cameras.main.setBackgroundColor("#2a2d3e");
 
     const canvasWidth = this.scale.width;
@@ -125,60 +152,45 @@ export class GameScene extends Phaser.Scene {
       this.createLocationWithZone(location, position);
     }
 
-    // Create NPCs AFTER locations, with spawn validation
-    for (const npc of npcProfiles) {
-      let position = layout.getNpcPosition(npc.id);
-      if (!position) {
-        console.warn(`No layout position found for NPC: ${npc.id}`);
-        continue;
-      }
-
-      // Validate NPC spawn position and adjust if needed
-      const validation = validateNpcSpawn(position, this.buildings, {
-        width: canvasWidth,
-        height: canvasHeight,
-      });
-
-      if (validation.wasAdjusted) {
-        console.warn(
-          `NPC "${npc.name}" spawn position adjusted from (${Math.round(position.x)}, ${Math.round(position.y)}) to (${Math.round(validation.position.x)}, ${Math.round(validation.position.y)}) to avoid building collision`
-        );
-        position = validation.position;
-      }
-
-      const npcRect = this.add.rectangle(position.x, position.y, 24, 24, 0x8ecae6);
-      this.physics.add.existing(npcRect);
-
-      const npcBody = npcRect as NpcRect;
-      npcBody.body.setCollideWorldBounds(true);
-      npcBody.body.setAllowGravity(false);
-      npcBody.body.setImmovable(true);
-
-      const label = this.add.text(position.x - 18, position.y - 28, npc.name, {
-        fontSize: "12px",
-        color: "#ffffff",
-      });
-
-      this.npcSprites.push({
-        sprite: npcBody,
-        label,
-        name: npc.name,
-        npcId: npc.id,
-      });
-
-      this.physics.add.collider(this.player, npcBody);
-    }
+    // Create NPCs AFTER locations.
+    this.syncNpcSprites(layout, canvasWidth, canvasHeight);
+    const store = useGameStore.getState();
+    this.lastNpcSyncKey = `${store.week}:${store.day}:${getCurrentDayType()}:${store.mandatoryActivityComplete}`;
 
     this.input.keyboard?.on("keydown-E", () => {
       this.checkInteraction();
     });
 
-    console.log(`✓ GameScene created with ${locations.length} locations and ${npcProfiles.length} NPCs`);
+    console.log(`✓ GameScene created with ${locations.length} locations`);
     console.log(`✓ Canvas size: ${canvasWidth}x${canvasHeight}`);
   }
 
-  update() {
+  update(_time: number, delta: number) {
     if (!this.player?.body) return;
+
+    const store = useGameStore.getState();
+    const syncKey = `${store.week}:${store.day}:${getCurrentDayType()}:${store.mandatoryActivityComplete}`;
+    if (syncKey !== this.lastNpcSyncKey) {
+      const layout = computeResponsiveLayout(this.scale.width, this.scale.height);
+      this.syncNpcSprites(layout, this.scale.width, this.scale.height);
+      this.lastNpcSyncKey = syncKey;
+    }
+
+    // Lightweight deterministic movement: wander within a small radius around anchor.
+    const wanderTick = Math.floor(this.time.now / 3500);
+    if (wanderTick !== this.lastNpcWanderTick) {
+      this.lastNpcWanderTick = wanderTick;
+      for (const npc of this.npcSprites.values()) {
+        const offset = this.pickWanderOffset(npc.npcId, npc.anchorKey, wanderTick);
+        const desired = { x: npc.anchorX + offset.dx, y: npc.anchorY + offset.dy };
+        const validated = validateNpcSpawn(desired, this.buildings, {
+          width: this.scale.width,
+          height: this.scale.height,
+        }).position;
+        npc.targetX = validated.x;
+        npc.targetY = validated.y;
+      }
+    }
 
     const speed = 180;
     let vx = 0;
@@ -203,9 +215,137 @@ export class GameScene extends Phaser.Scene {
       this.player.body.setVelocity(0, 0);
     }
 
-    // Keep NPC labels synced in case NPCs move later
-    for (const npc of this.npcSprites) {
+    // Move NPCs toward their wander targets + keep labels synced.
+    const npcSpeed = 26; // px/sec
+    const step = (npcSpeed * delta) / 1000;
+
+    for (const npc of this.npcSprites.values()) {
+      const dx = npc.targetX - npc.sprite.x;
+      const dy = npc.targetY - npc.sprite.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist > 0.5) {
+        const ratio = Math.min(1, step / dist);
+        npc.sprite.setPosition(npc.sprite.x + dx * ratio, npc.sprite.y + dy * ratio);
+      }
+
       npc.label.setPosition(npc.sprite.x - 18, npc.sprite.y - 28);
+    }
+  }
+
+  private stableHash(input: string): number {
+    let hash = 2166136261;
+    for (let i = 0; i < input.length; i++) {
+      hash ^= input.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  private pickWanderOffset(npcId: string, anchorKey: string, tick: number): { dx: number; dy: number } {
+    const h1 = this.stableHash(`${npcId}:${anchorKey}:${tick}:x`);
+    const h2 = this.stableHash(`${npcId}:${anchorKey}:${tick}:y`);
+
+    // Small radius so it reads as "idling" not pathfinding.
+    const radius = 18;
+    const dx = ((h1 % (radius * 2 + 1)) - radius);
+    const dy = ((h2 % (radius * 2 + 1)) - radius);
+    return { dx, dy };
+  }
+
+  private syncNpcSprites(
+    layout: ReturnType<typeof computeResponsiveLayout>,
+    canvasWidth: number,
+    canvasHeight: number
+  ) {
+    const visibleNpcIds = getVisibleOverworldNpcIds();
+    const visibleSet = new Set(visibleNpcIds);
+
+    // Remove no-longer-visible NPCs.
+    for (const [npcId, existing] of this.npcSprites.entries()) {
+      if (!visibleSet.has(npcId)) {
+        existing.collider.destroy();
+        existing.label.destroy();
+        existing.sprite.destroy();
+        this.npcSprites.delete(npcId);
+      }
+    }
+
+    for (const npcId of visibleNpcIds) {
+      let decision;
+      try {
+        decision = decideNpcNow(npcId);
+      } catch (err) {
+        console.warn(`NPC decision failed for ${npcId}`, err);
+        continue;
+      }
+      if (!decision) continue;
+
+      const basePos = layout.getLocationPosition(decision.locationId);
+      if (!basePos) continue;
+
+      const anchors = NPC_LOCATION_ANCHORS[decision.locationId] ?? [{ dx: 0, dy: 0 }];
+      const slotIndex = pickAnchorSlotIndex(npcId, decision.locationId);
+      const anchor = anchors[slotIndex] ?? anchors[0];
+
+      const anchorX = basePos.x + anchor.dx;
+      const anchorY = basePos.y + anchor.dy;
+
+      let position = { x: anchorX, y: anchorY };
+
+      const validation = validateNpcSpawn(position, this.buildings, {
+        width: canvasWidth,
+        height: canvasHeight,
+      });
+      position = validation.position;
+
+      const existing = this.npcSprites.get(npcId);
+      if (!existing) {
+        const npcRect = this.add.rectangle(position.x, position.y, 24, 24, 0x8ecae6);
+        this.physics.add.existing(npcRect);
+
+        const npcBody = npcRect as NpcRect;
+        npcBody.body.setCollideWorldBounds(true);
+        npcBody.body.setAllowGravity(false);
+        npcBody.body.setImmovable(true);
+
+        const label = this.add.text(position.x - 18, position.y - 28, decision.name, {
+          fontSize: "12px",
+          color: "#ffffff",
+        });
+
+        const collider = this.physics.add.collider(this.player, npcBody);
+
+        this.npcSprites.set(npcId, {
+          sprite: npcBody,
+          label,
+          name: decision.name,
+          npcId,
+          collider,
+          anchorX,
+          anchorY,
+          anchorKey: `${decision.locationId}:${slotIndex}`,
+          targetX: position.x,
+          targetY: position.y,
+        });
+      } else {
+        const nextAnchorKey = `${decision.locationId}:${slotIndex}`;
+        const anchorChanged = existing.anchorKey !== nextAnchorKey;
+
+        existing.anchorX = anchorX;
+        existing.anchorY = anchorY;
+        existing.anchorKey = nextAnchorKey;
+
+        if (anchorChanged) {
+          existing.sprite.setPosition(position.x, position.y);
+          existing.targetX = position.x;
+          existing.targetY = position.y;
+        }
+        if (existing.name !== decision.name) {
+          existing.name = decision.name;
+          existing.label.setText(decision.name);
+        }
+      }
     }
   }
 
@@ -331,7 +471,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Check NPC interactions SECOND
-    for (const npc of this.npcSprites) {
+    for (const npc of this.npcSprites.values()) {
       const dist = Phaser.Math.Distance.Between(
         this.player.x,
         this.player.y,
@@ -340,7 +480,7 @@ export class GameScene extends Phaser.Scene {
       );
 
       if (dist < 50) {
-        store.openNpcPanel(npc.name);
+        store.openNpcPanel(npc.npcId);
         return;
       }
     }

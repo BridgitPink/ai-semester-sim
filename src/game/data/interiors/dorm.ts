@@ -57,6 +57,27 @@ export const DORM_OBJECTS: InteriorObject[] = [
     },
   },
 
+  // Roommate presence hook (MVP): opens NPC interaction panel.
+  {
+    id: "dorm-roommate-talk",
+    building: "dorm",
+    name: "Riley",
+    relativeX: 0.55,
+    relativeY: 0.2,
+    width: 28,
+    height: 28,
+    interactionType: "talk-npc",
+    label: "Riley",
+    color: 0x8ecae6,
+    isCollider: false,
+    interactionRange: 65,
+    metadata: {
+      npcId: "riley-roommate",
+      wandering: true,
+      description: "Your roommate is here. Talk to them.",
+    },
+  },
+
   // ROW 3 - DESKS
   {
     id: "dorm-desk-player",

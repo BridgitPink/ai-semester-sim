@@ -11,6 +11,11 @@ type SceneKey = "GameScene" | "ClassroomScene";
 type DayType = "class" | "lab" | "off";
 type FreeActionType = "rest" | "social" | "project" | "study" | "skip";
 
+export interface RelationshipState {
+  affinity: number; // 0-100
+  familiarity: number; // 0-100
+}
+
 type ObjectModalVariant = "placeholder" | "info" | "extra-credit" | "lab";
 
 interface ObjectModalContext {
@@ -42,7 +47,7 @@ interface GameStore {
   // Location & UI
   currentLocation: LocationId;
   activePanel: PanelType;
-  selectedNpcName: string | null;
+  selectedNpcId: string | null;
   menuOpen: boolean;
 
   // Object interaction modal (placeholder/info/extra-credit/lab)
@@ -65,13 +70,13 @@ interface GameStore {
   completedLessons: string[];
   
   // Relationships & projects
-  npcRelationships: Record<string, number>; // npcId -> relationship points
+  npcRelationshipState: Record<string, RelationshipState>; // npcId -> relationship state
   projectState: ProjectState;
   
   // Actions
   setLocation: (location: LocationId) => void;
   openLocationPanel: (location: LocationId) => void;
-  openNpcPanel: (npcName: string) => void;
+  openNpcPanel: (npcId: string) => void;
   openCoursePanel: () => void;
   openProjectPanel: () => void;
   closePanel: () => void;
@@ -123,7 +128,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // Location & UI state
   currentLocation: null,
   activePanel: "none",
-  selectedNpcName: null,
+  selectedNpcId: null,
   menuOpen: false,
 
   objectModal: null,
@@ -152,7 +157,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   completedLessons: [],
   
   // Relationship & project state
-  npcRelationships: {},
+  npcRelationshipState: {},
   projectState: {
     unlockedFeatures: [],
     selectedFeatures: [],
@@ -166,27 +171,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       currentLocation: location,
       activePanel: "location",
-      selectedNpcName: null,
+      selectedNpcId: null,
     }),
-  openNpcPanel: (npcName) =>
+  openNpcPanel: (npcId) =>
     set({
       activePanel: "npc",
-      selectedNpcName: npcName,
+      selectedNpcId: npcId,
     }),
   openCoursePanel: () =>
     set({
       activePanel: "course",
-      selectedNpcName: null,
+      selectedNpcId: null,
     }),
   openProjectPanel: () =>
     set({
       activePanel: "project",
-      selectedNpcName: null,
+      selectedNpcId: null,
     }),
   closePanel: () =>
     set({
       activePanel: "none",
-      selectedNpcName: null,
+      selectedNpcId: null,
       sleepConfirmationOpen: false,
       objectModal: null,
     }),
@@ -456,11 +461,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // Action: relationships
   updateNpcRelationship: (npcId, delta) => {
     const state = get();
-    const current = state.npcRelationships[npcId] || 0;
+    const current = state.npcRelationshipState[npcId] ?? { affinity: 50, familiarity: 0 };
     set({
-      npcRelationships: {
-        ...state.npcRelationships,
-        [npcId]: Math.max(0, Math.min(100, current + delta)),
+      npcRelationshipState: {
+        ...state.npcRelationshipState,
+        [npcId]: {
+          affinity: Math.max(0, Math.min(100, current.affinity + delta)),
+          familiarity:
+            delta === 0
+              ? current.familiarity
+              : Math.max(0, Math.min(100, current.familiarity + 2)),
+        },
       },
     });
   },
@@ -475,13 +486,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       progressPercent: 0,
     }));
     
-    const npcRelationships: Record<string, number> = {};
-    // Initialize all NPCs to 50 (neutral) if needed
+    const npcRelationshipState: Record<string, RelationshipState> = {};
     
     set({
       currentSemester: semester,
       courseCompletions,
-      npcRelationships,
+      npcRelationshipState,
       day: 1,
       week: 1,
       dayType: "class", // Day 1 is Monday = class day

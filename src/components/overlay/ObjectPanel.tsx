@@ -17,7 +17,7 @@ export function ObjectPanel() {
     freeActionsRemaining,
     objectModal,
     clearObjectModal,
-    useFreeAction,
+    useFreeAction: spendFreeAction,
     labActivityStatus,
     completeLabActivityForToday,
   } = useGameStore();
@@ -122,12 +122,12 @@ export function ObjectPanel() {
     objectModal.interactionType === "practice-exercise";
 
   const handleDoStudy = () => {
-    useFreeAction("study", getActionEffects("study"));
+    spendFreeAction("study", getActionEffects("study"));
     close();
   };
 
   const handleDoExtraCredit = () => {
-    useFreeAction("study", getActionEffects("study"));
+    spendFreeAction("study", getActionEffects("study"));
     close();
   };
 

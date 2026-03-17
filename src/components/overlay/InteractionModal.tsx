@@ -5,7 +5,7 @@ import { InteractionPanel } from "./InteractionPanel";
 import { ObjectPanel } from "./ObjectPanel";
 
 export function InteractionModal() {
-  const { activePanel, currentLocation, selectedNpcName, closePanel } =
+  const { activePanel, currentLocation, selectedNpcId, closePanel } =
     useGameStore();
 
   if (activePanel === "none") return null;
@@ -43,8 +43,8 @@ export function InteractionModal() {
           )}
 
           {/* NPC Interaction Panel */}
-          {activePanel === "npc" && selectedNpcName && (
-            <InteractionPanel npcName={selectedNpcName} />
+          {activePanel === "npc" && selectedNpcId && (
+            <InteractionPanel npcId={selectedNpcId} />
           )}
 
           {/* Course Panel */}
