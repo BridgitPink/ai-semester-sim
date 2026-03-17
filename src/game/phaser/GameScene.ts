@@ -4,6 +4,7 @@ import { npcProfiles } from "../data/npcs";
 import { useGameStore } from "../../store/useGameStore";
 import type { LocationProfile } from "../data/locations";
 import { computeResponsiveLayout } from "../systems/layoutSystem";
+import { validateNpcSpawn } from "../systems/npcPlacementSystem";
 
 type PlayerRect = Phaser.GameObjects.Rectangle & {
   body: Phaser.Physics.Arcade.Body;
@@ -40,6 +41,11 @@ export class GameScene extends Phaser.Scene {
     locationId: string;
     visual: Phaser.GameObjects.Rectangle;
   }[] = [];
+
+  private buildings: Array<{
+    location: LocationProfile;
+    position: { x: number; y: number };
+  }> = [];
 
   constructor() {
     super("GameScene");
@@ -94,15 +100,29 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
 
+      this.buildings.push({ location, position });
       this.createLocationWithZone(location, position);
     }
 
-    // Create NPCs AFTER locations
+    // Create NPCs AFTER locations, with spawn validation
     for (const npc of npcProfiles) {
-      const position = layout.getNpcPosition(npc.id);
+      let position = layout.getNpcPosition(npc.id);
       if (!position) {
         console.warn(`No layout position found for NPC: ${npc.id}`);
         continue;
+      }
+
+      // Validate NPC spawn position and adjust if needed
+      const validation = validateNpcSpawn(position, this.buildings, {
+        width: canvasWidth,
+        height: canvasHeight,
+      });
+
+      if (validation.wasAdjusted) {
+        console.warn(
+          `NPC "${npc.name}" spawn position adjusted from (${Math.round(position.x)}, ${Math.round(position.y)}) to (${Math.round(validation.position.x)}, ${Math.round(validation.position.y)}) to avoid building collision`
+        );
+        position = validation.position;
       }
 
       const npcRect = this.add.rectangle(position.x, position.y, 24, 24, 0x8ecae6);
@@ -208,14 +228,34 @@ export class GameScene extends Phaser.Scene {
   private checkInteraction() {
     const store = useGameStore.getState();
 
-    for (const locZone of this.locationZones) {
-      const bounds = locZone.visual.getBounds();
-      if (bounds.contains(this.player.x, this.player.y)) {
-        store.openLocationPanel(locZone.locationId as any);
-        return;
+    // Check building interactions FIRST (priority over NPCs)
+    for (const building of this.buildings) {
+      const { location, position } = building;
+      
+      // Calculate distance from player center to building center
+      const distToBuilding = Phaser.Math.Distance.Between(
+        this.player.x,
+        this.player.y,
+        position.x,
+        position.y
+      );
+
+      // Calculate interaction threshold based on building size + padding
+      // Using the larger dimension (width or height) for more forgiving interaction
+      const maxDimension = Math.max(location.size.width, location.size.height);
+      const interactionThreshold = maxDimension / 2 + 25; // 25px padding buffer
+
+      if (distToBuilding < interactionThreshold) {
+        // Find the corresponding location zone to get the ID
+        const locZone = this.locationZones.find((z) => z.locationId === location.id);
+        if (locZone) {
+          store.openLocationPanel(locZone.locationId as any);
+          return;
+        }
       }
     }
 
+    // Check NPC interactions SECOND
     for (const npc of this.npcSprites) {
       const dist = Phaser.Math.Distance.Between(
         this.player.x,

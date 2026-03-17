@@ -72,7 +72,7 @@ export const npcProfiles: NpcProfile[] = [
 export const relativeNpcLayout: Record<string, { x: number; y: number }> = {
   ava: { x: 0.33, y: 0.52 },
   miles: { x: 0.73, y: 0.37 },
-  alex: { x: 0.68, y: 0.56 },
+  alex: { x: 0.50, y: 0.74 },
   jordan: { x: 0.75, y: 0.70 },
   casey: { x: 0.42, y: 0.70 },
 };
