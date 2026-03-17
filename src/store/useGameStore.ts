@@ -3,9 +3,10 @@ import type { PlayerStats } from "../game/types/player";
 import type { Semester } from "../game/types/semester";
 import type { CourseCompletion, Lesson } from "../game/types/course";
 import type { ProjectState } from "../game/types/player";
+import type { InteriorObject } from "../game/types/interiorObject";
 
 type LocationId = "dorm" | "classroom" | "library" | "cafe" | "lab" | "advisor-office" | null;
-type PanelType = "none" | "location" | "npc" | "course" | "project";
+type PanelType = "none" | "location" | "npc" | "course" | "project" | "object";
 type SceneKey = "GameScene" | "ClassroomScene";
 
 interface PlayerPosition {
@@ -23,6 +24,7 @@ interface GameStore {
   currentLocation: LocationId;
   activePanel: PanelType;
   selectedNpcName: string | null;
+  interactedObject: InteriorObject | null; // Track which object triggered the modal
   menuOpen: boolean;
   
   // Lesson modal
@@ -51,6 +53,7 @@ interface GameStore {
   openNpcPanel: (npcName: string) => void;
   openCoursePanel: () => void;
   openProjectPanel: () => void;
+  openObjectPanel: (object: InteriorObject) => void;
   closePanel: () => void;
   toggleMenu: () => void;
   
@@ -82,6 +85,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   currentLocation: null,
   activePanel: "none",
   selectedNpcName: null,
+  interactedObject: null,
   menuOpen: false,
   
   // Lesson modal state
@@ -123,26 +127,37 @@ export const useGameStore = create<GameStore>((set, get) => ({
       currentLocation: location,
       activePanel: "location",
       selectedNpcName: null,
+      interactedObject: null,
     }),
   openNpcPanel: (npcName) =>
     set({
       activePanel: "npc",
       selectedNpcName: npcName,
+      interactedObject: null,
     }),
   openCoursePanel: () =>
     set({
       activePanel: "course",
       selectedNpcName: null,
+      interactedObject: null,
     }),
   openProjectPanel: () =>
     set({
       activePanel: "project",
+      selectedNpcName: null,
+      interactedObject: null,
+    }),
+  openObjectPanel: (object) =>
+    set({
+      activePanel: "object",
+      interactedObject: object,
       selectedNpcName: null,
     }),
   closePanel: () =>
     set({
       activePanel: "none",
       selectedNpcName: null,
+      interactedObject: null,
     }),
   
   // Action: menu

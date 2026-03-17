@@ -11,11 +11,17 @@ import { getObjectWorldPosition } from "../systems/interiorObjectSystem";
  * - Inner/outer area layout (60% centered play area)
  * - Automatic border + shadow rendering
  * - Consistent styling and input handling
+ * - Proximity tracking each frame
  *
  * This class implements createInterior() with classroom-specific content.
+ * Implements updateProximityUI() to show/hide interaction hints based on player proximity.
  * Course/lesson UI displayed via React overlay components.
  */
 export class ClassroomScene extends BuildingSceneBase {
+  // Store label and hint text objects for dynamic visibility toggling
+  private objectLabels: Map<string, Phaser.GameObjects.Text> = new Map();
+  private objectHints: Map<string, Phaser.GameObjects.Text> = new Map();
+
   constructor() {
     super("ClassroomScene");
   }
@@ -40,9 +46,6 @@ export class ClassroomScene extends BuildingSceneBase {
     // Title with building name (positioned at top of inner area)
     this.addTitleText(location.name, 40);
 
-    // Description (positioned below title)
-    this.addDescriptionText(location.description, 90);
-
     // Exit instruction (positioned at bottom of inner area)
     this.addFooterText("[ESC] Return to campus", 40);
 
@@ -55,7 +58,11 @@ export class ClassroomScene extends BuildingSceneBase {
   /**
    * Render all interactive objects for this classroom
    * Objects are data-driven from CLASSROOM_OBJECTS
-   * Collision objects (isCollider=true) are marked with brighter borders
+   * 
+   * Creates:
+   * - Object rectangles with visual hierarchy (color + size)
+   * - Object label text (hidden by default, shown on proximity)
+   * - Interaction hint text (hidden by default, shown on proximity)
    */
   private renderInteriorObjects() {
     // Store objects for proximity detection
@@ -73,14 +80,14 @@ export class ClassroomScene extends BuildingSceneBase {
       rect.setOrigin(0.5);
       rect.setDepth(4);
 
-      // Visual hint for collision objects: brighter border
+      // Visual styling for collision vs non-collision objects
       if (object.isCollider) {
-        rect.setStrokeStyle(3, 0xffff99, 0.8); // Bright yellow-white for collision hint
+        rect.setStrokeStyle(3, 0xffff99, 0.8); // Bright yellow-white for collision
       } else {
         rect.setStrokeStyle(2, 0xffffff, 0.5); // Subtle white for non-collision
       }
 
-      // Create label text: position above object if it's tall, otherwise below
+      // Create object label text (initially hidden, shown on proximity)
       const labelY = worldPos.y - object.height / 2 - 20;
       const label = this.add.text(worldPos.x, labelY, object.label, {
         fontSize: "14px",
@@ -92,9 +99,12 @@ export class ClassroomScene extends BuildingSceneBase {
       label.setDepth(5); // Above objects
       label.setBackgroundColor("#00000088"); // Semi-transparent background for readability
       label.setPadding(4, 6);
+      label.setVisible(false); // Hidden by default, shown by proximity system
+      
+      // Store reference for proximity-based toggling
+      this.objectLabels.set(object.id, label);
 
-      // Add hint text for interactive objects
-      const hintColor = object.isCollider ? "#ffff99" : "#aaaaaa";
+      // Create hint text for interactive objects (initially hidden)
       let hintText = "";
       
       switch (object.interactionType) {
@@ -122,11 +132,16 @@ export class ClassroomScene extends BuildingSceneBase {
         const hintY = worldPos.y + object.height / 2 + 15;
         const hint = this.add.text(worldPos.x, hintY, hintText, {
           fontSize: "12px",
-          color: hintColor,
+          color: "#ffff99",
           align: "center",
+          fontStyle: "bold",
         });
         hint.setOrigin(0.5);
         hint.setDepth(5);
+        hint.setVisible(false); // Hidden by default, shown by proximity system
+        
+        // Store reference for proximity-based toggling
+        this.objectHints.set(object.id, hint);
       }
 
       console.log(
@@ -136,4 +151,42 @@ export class ClassroomScene extends BuildingSceneBase {
       );
     }
   }
+
+  /**
+   * Update proximity-based UI: show/hide labels and hints based on player distance
+   * Called each frame after proximity check completes (from BuildingSceneBase.update)
+   */
+  protected updateProximityUI(): void {
+    if (!this.proximityResult) {
+      // No proximity data, hide all labels and hints
+      this.objectLabels.forEach((label) => label.setVisible(false));
+      this.objectHints.forEach((hint) => hint.setVisible(false));
+      return;
+    }
+
+    // If object found within threshold, show its label and hint
+    if (this.proximityResult.objectFound && this.proximityResult.object) {
+      const closestObjectId = this.proximityResult.object.id;
+      
+      // Show label and hint for closest object
+      const label = this.objectLabels.get(closestObjectId);
+      if (label) label.setVisible(true);
+      
+      const hint = this.objectHints.get(closestObjectId);
+      if (hint) hint.setVisible(true);
+      
+      // Hide all other labels and hints
+      this.objectLabels.forEach((l, id) => {
+        if (id !== closestObjectId) l.setVisible(false);
+      });
+      this.objectHints.forEach((h, id) => {
+        if (id !== closestObjectId) h.setVisible(false);
+      });
+    } else {
+      // No object in range, hide all labels and hints
+      this.objectLabels.forEach((label) => label.setVisible(false));
+      this.objectHints.forEach((hint) => hint.setVisible(false));
+    }
+  }
 }
+

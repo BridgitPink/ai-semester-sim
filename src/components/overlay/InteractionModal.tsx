@@ -2,6 +2,7 @@ import { useGameStore } from "../../store/useGameStore";
 import { CoursePanel } from "./CoursePanel";
 import { ProjectPanel } from "./ProjectPanel";
 import { InteractionPanel } from "./InteractionPanel";
+import { ObjectPanel } from "./ObjectPanel";
 
 export function InteractionModal() {
   const { activePanel, currentLocation, selectedNpcName, closePanel } =
@@ -51,6 +52,9 @@ export function InteractionModal() {
 
           {/* Project Panel */}
           {activePanel === "project" && <ProjectPanel />}
+
+          {/* Object Panel (for classroom objects and placeholders) */}
+          {activePanel === "object" && <ObjectPanel />}
         </div>
       </div>
     </>

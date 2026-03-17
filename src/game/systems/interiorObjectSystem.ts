@@ -204,7 +204,7 @@ export function checkObjectProximity(
 
 /**
  * Handle object interaction based on interaction type
- * Dispatches to appropriate Zustand actions
+ * Dispatches to appropriate Zustand actions or scene transitions
  *
  * @param object - InteriorObject being interacted with
  */
@@ -245,59 +245,37 @@ export function handleObjectInteraction(object: InteriorObject): void {
     }
 
     case "review-course": {
-      // MVP: CoursePanel already shows the active incomplete course
-      // Just log that review was triggered
-      const activeCourseCompletion = store.courseCompletions.find(
-        (cc) => !cc.isCompleted
-      );
-      if (activeCourseCompletion) {
-        console.log(
-          `✓ Reviewing course: ${activeCourseCompletion.courseId}`
-        );
-      }
+      // Open course panel to review course progress
+      store.openCoursePanel();
+      console.log(`✓ Opening course review panel for: ${object.label}`);
       break;
     }
 
     case "practice-exercise": {
-      // Placeholder: Practice with current course
-      const activeCourseCompletion = store.courseCompletions.find(
-        (cc) => !cc.isCompleted
-      );
-      if (activeCourseCompletion) {
-        console.log(
-          `✓ Practice exercise opened for: ${activeCourseCompletion.courseId}`
-        );
-      } else {
-        console.log("✓ No active course for practice");
-      }
+      // Open object panel with "Coming Soon" placeholder
+      store.openObjectPanel(object);
+      console.log(`✓ Opening practice panel for: ${object.label}`);
       break;
     }
 
     case "reference-materials": {
-      // Placeholder: Browse reference materials
-      console.log("✓ Reference materials accessed - learning resources available");
+      // Open object panel with "Coming Soon" placeholder
+      store.openObjectPanel(object);
+      console.log(`✓ Opening reference materials panel for: ${object.label}`);
       break;
     }
 
     case "course-goals": {
-      // Placeholder: Review course goals and milestones
-      const activeCourseCompletion = store.courseCompletions.find(
-        (cc) => !cc.isCompleted
-      );
-      if (activeCourseCompletion) {
-        console.log(
-          `✓ Course goals reviewed for: ${activeCourseCompletion.courseId}`
-        );
-      } else {
-        console.log("✓ Course goals and milestones displayed");
-      }
+      // Open object panel with "Coming Soon" placeholder
+      store.openObjectPanel(object);
+      console.log(`✓ Opening course goals panel for: ${object.label}`);
       break;
     }
 
     case "leave-classroom": {
-      // Exit building
+      // Exit building handled by scene (no modal needed)
       console.log("✓ Exiting classroom...");
-      store.exitBuilding();
+      // Note: The scene handles the actual transition in BuildingSceneBase.checkAndHandleObjectInteraction
       break;
     }
 

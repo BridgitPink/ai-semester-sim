@@ -30,6 +30,9 @@ export abstract class BuildingSceneBase extends Phaser.Scene {
   protected player!: PlayerObject;
   protected interiorObjects: InteriorObject[] = [];
 
+  // Proximity tracking (updated each frame for UI feedback)
+  protected proximityResult: ReturnType<typeof checkObjectProximity> | null = null;
+
   // Keyboard input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasdKeys!: {
@@ -119,6 +122,25 @@ export abstract class BuildingSceneBase extends Phaser.Scene {
     // Clamp player position to inner play area bounds (safety net)
     const clamped = this.layout.clampToBounds(nextX, nextY);
     this.player.setPosition(clamped.x, clamped.y);
+
+    // Update proximity tracking for UI feedback (e.g., interaction hints)
+    this.proximityResult = checkObjectProximity(
+      this.interiorObjects,
+      this.layout,
+      clamped.x,
+      clamped.y
+    );
+
+    // Allow subclasses to update proximity-based UI
+    this.updateProximityUI();
+  }
+
+  /**
+   * Optional hook: subclasses can implement this to update proximity-based UI
+   * Called each frame after proximity check completes
+   */
+  protected updateProximityUI(): void {
+    // To be overridden by subclasses
   }
 
   /**
@@ -264,6 +286,13 @@ export abstract class BuildingSceneBase extends Phaser.Scene {
     // If object found within threshold, handle interaction
     if (result.objectFound && result.object) {
       handleObjectInteraction(result.object);
+
+      // Special case: exit interaction requires scene transition (not just store update)
+      if (result.object.interactionType === "leave-classroom") {
+        this.cameras.main.fade(300, 0, 0, 0, false, () => {
+          this.scene.start("GameScene");
+        });
+      }
     }
   }
 
