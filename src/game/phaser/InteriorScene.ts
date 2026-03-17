@@ -2,7 +2,9 @@ import { useGameStore } from "../../store/useGameStore";
 import { getLocation } from "../data/locations";
 import { getInteriorConfig } from "../data/interiors";
 import { getObjectWorldPosition } from "../systems/interiorObjectSystem";
+import { isClassroomOpen } from "../systems/timeSystem";
 import { BuildingSceneBase } from "./BuildingSceneBase";
+import type { InteriorObject } from "../types/interiorObject";
 
 export class InteriorScene extends BuildingSceneBase {
   private objectLabels: Map<string, Phaser.GameObjects.Text> = new Map();
@@ -39,10 +41,67 @@ export class InteriorScene extends BuildingSceneBase {
     this.addTitleText(location.name, 40);
     this.addFooterText("[ESC] Return to campus", 40);
 
-    this.interiorObjects = interiorConfig.objects;
+    // Filter objects based on building rules (e.g., classroom availability)
+    this.interiorObjects = this.filterObjectsByAvailability(buildingId, interiorConfig.objects);
     this.renderInteriorObjects();
+    
+    // Show closed message for classroom if not open
+    if (buildingId === "classroom" && !isClassroomOpen()) {
+      this.showClassroomClosedMessage();
+    }
 
     console.log(`✓ InteriorScene created for: ${location.name}`);
+  }
+
+  /**
+   * Filter objects based on building-specific availability rules
+   * For classroom: remove lesson-related objects if classroom is closed
+   */
+  private filterObjectsByAvailability(buildingId: string, objects: InteriorObject[]): InteriorObject[] {
+    if (buildingId !== "classroom") {
+      return objects; // No filtering for other buildings
+    }
+
+    // If classroom is open, include all objects
+    if (isClassroomOpen()) {
+      return objects;
+    }
+
+    // Classroom is closed: remove lesson-related objects
+    const lessonRelatedTypes = ["start-lesson", "review-course", "course-goals"];
+    return objects.filter((obj) => !lessonRelatedTypes.includes(obj.interactionType));
+  }
+
+  /**
+   * Display a "classroom closed" message when classroom is unavailable
+   */
+  private showClassroomClosedMessage() {
+    const closedText = this.add.text(
+      this.layout.innerArea.x,
+      this.layout.innerArea.y - 80,
+      "Classroom is closed",
+      {
+        fontSize: "24px",
+        color: "#ff6b6b",
+        align: "center",
+        fontStyle: "bold",
+      }
+    );
+    closedText.setOrigin(0.5);
+    closedText.setDepth(5);
+
+    const reasonText = this.add.text(
+      this.layout.innerArea.x,
+      this.layout.innerArea.y - 40,
+      "Come back on Monday, Tuesday, or Wednesday before 3 PM",
+      {
+        fontSize: "13px",
+        color: "#cbd5e1",
+        align: "center",
+      }
+    );
+    reasonText.setOrigin(0.5);
+    reasonText.setDepth(5);
   }
 
   private renderInteriorObjects() {
@@ -123,7 +182,7 @@ export class InteriorScene extends BuildingSceneBase {
         return "[E] Course goals";
       case "leave-classroom":
         return "[E] Exit";
-      case "sleep":
+      case "sleep-confirm":
         return "[E] Sleep";
       case "study":
         return "[E] Study";
@@ -137,6 +196,8 @@ export class InteriorScene extends BuildingSceneBase {
         return "[E] Roommate's Desk";
       case "roommate-storage":
         return "[E] Roommate's Storage";
+      case "lab-activity":
+        return "[E] Lab Activity";
       default:
         return "";
     }

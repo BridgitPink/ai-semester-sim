@@ -28,14 +28,14 @@ export const DORM_OBJECTS: InteriorObject[] = [
     relativeY: -0.65,
     width: 80,
     height: 110,
-    interactionType: "sleep",
+    interactionType: "sleep-confirm",
     label: "Sleep",
     color: 0x5d7a8f,
     isCollider: true,
     collisionMargin: 6,
     interactionRange: 70,
     metadata: {
-      description: "Rest to recover energy and advance time. Sleep mechanics are in progress.",
+      description: "Rest and recover energy. Sleep to advance to the next day.",
     },
   },
   {

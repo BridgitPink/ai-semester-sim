@@ -202,6 +202,52 @@ body {
   gap: 10px;
 }
 
+/* Day Information Display */
+.sidebar-day-type {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-accent-light);
+  padding-top: 4px;
+}
+
+.sidebar-day-info {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.day-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.day-info-row .label {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.day-info-row .value {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.day-info-hint {
+  font-size: 11px;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 8px;
+  border-radius: 4px;
+  border-left: 2px solid #10b981;
+  margin-top: 4px;
+}
+
 /* Course List */
 .sidebar-course-list {
   display: flex;
@@ -678,6 +724,41 @@ body {
 .btn-small {
   padding: 8px 12px;
   font-size: 12px;
+}
+
+/* Sleep Panel Styles */
+.sleep-info {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.sleep-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.sleep-stat .label {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.sleep-stat .value {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.sleep-stat .value.recovery {
+  color: #10b981;
+  font-weight: 700;
 }
 
 /* ===== Responsive Modal ===== */

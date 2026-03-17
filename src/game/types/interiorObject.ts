@@ -21,13 +21,14 @@ export type ObjectInteractionType =
   | "reference-materials"
   | "course-goals"
   | "leave-classroom"
-  | "sleep"
+  | "sleep-confirm"
   | "study"
   | "storage"
   | "view-tasks"
   | "roommate-bed"
   | "roommate-desk"
-  | "roommate-storage";
+  | "roommate-storage"
+  | "lab-activity";
 
 /**
  * Positioned relative to inner play area center.

@@ -205,7 +205,7 @@ export function checkObjectProximity(
 
 /**
  * Handle object interaction based on interaction type
- * Dispatches to appropriate Zustand actions or scene transitions
+ * Dispatches to appropriate Zustand actions
  *
  * @param object - InteriorObject being interacted with
  */
@@ -246,86 +246,66 @@ export function handleObjectInteraction(object: InteriorObject): void {
     }
 
     case "review-course": {
-      // Open course panel to review course progress
-      store.openCoursePanel();
-      console.log(`✓ Opening course review panel for: ${object.label}`);
+      // MVP: CoursePanel already shows the active incomplete course
+      // Just log that review was triggered
+      const activeCourseCompletion = store.courseCompletions.find(
+        (cc) => !cc.isCompleted
+      );
+      if (activeCourseCompletion) {
+        console.log(
+          `✓ Reviewing course: ${activeCourseCompletion.courseId}`
+        );
+      }
       break;
     }
 
     case "practice-exercise": {
-      // Open object panel with "Coming Soon" placeholder
-      store.openObjectPanel(object);
-      console.log(`✓ Opening practice panel for: ${object.label}`);
+      // Placeholder: Practice with current course
+      const activeCourseCompletion = store.courseCompletions.find(
+        (cc) => !cc.isCompleted
+      );
+      if (activeCourseCompletion) {
+        console.log(
+          `✓ Practice exercise opened for: ${activeCourseCompletion.courseId}`
+        );
+      } else {
+        console.log("✓ No active course for practice");
+      }
       break;
     }
 
     case "reference-materials": {
-      // Open object panel with "Coming Soon" placeholder
-      store.openObjectPanel(object);
-      console.log(`✓ Opening reference materials panel for: ${object.label}`);
+      // Placeholder: Browse reference materials
+      console.log("✓ Reference materials accessed - learning resources available");
       break;
     }
 
     case "course-goals": {
-      // Open object panel with "Coming Soon" placeholder
-      store.openObjectPanel(object);
-      console.log(`✓ Opening course goals panel for: ${object.label}`);
+      // Placeholder: Review course goals and milestones
+      const activeCourseCompletion = store.courseCompletions.find(
+        (cc) => !cc.isCompleted
+      );
+      if (activeCourseCompletion) {
+        console.log(
+          `✓ Course goals reviewed for: ${activeCourseCompletion.courseId}`
+        );
+      } else {
+        console.log("✓ Course goals and milestones displayed");
+      }
       break;
     }
 
     case "leave-classroom": {
-      // Exit building handled by scene (no modal needed)
+      // Exit building
       console.log("✓ Exiting classroom...");
-      // Note: The scene handles the actual transition in BuildingSceneBase.checkAndHandleObjectInteraction
+      store.exitBuilding();
       break;
     }
 
-    case "sleep": {
-      // Placeholder for sleep/rest mechanic
-      store.openObjectPanel(object);
-      console.log(`✓ Sleep interaction (placeholder): ${object.label}`);
-      break;
-    }
-
-    case "study": {
-      // Placeholder for study mechanic
-      store.openObjectPanel(object);
-      console.log(`✓ Study interaction (placeholder): ${object.label}`);
-      break;
-    }
-
-    case "storage": {
-      // Placeholder for inventory/storage mechanic
-      store.openObjectPanel(object);
-      console.log(`✓ Storage interaction (placeholder): ${object.label}`);
-      break;
-    }
-
-    case "view-tasks": {
-      // Placeholder for tasks panel
-      store.openObjectPanel(object);
-      console.log(`✓ View tasks interaction (placeholder): ${object.label}`);
-      break;
-    }
-
-    case "roommate-bed": {
-      // Placeholder for roommate interaction
-      store.openObjectPanel(object);
-      console.log(`✓ Roommate bed interaction (placeholder): ${object.label}`);
-      break;
-    }
-
-    case "roommate-desk": {
-      // Placeholder for roommate interaction
-      store.openObjectPanel(object);
-      console.log(`✓ Roommate desk interaction (placeholder): ${object.label}`);
-      break;
-    }
-
-    case "roommate-storage": {
-      // Placeholder for roommate interaction
-      store.openObjectPanel(object);
-      console.log(`✓ Roommate storage interaction (placeholder): ${object.label}`);
+    case "sleep-confirm": {
+      // Open sleep confirmation modal
+      store.openSleepConfirmation();
+      console.log("✓ Sleep confirmation modal opened");
       break;
     }
 

@@ -3,11 +3,12 @@ import type { PlayerStats } from "../game/types/player";
 import type { Semester } from "../game/types/semester";
 import type { CourseCompletion, Lesson } from "../game/types/course";
 import type { ProjectState } from "../game/types/player";
-import type { InteriorObject } from "../game/types/interiorObject";
 
-export type LocationId = "dorm" | "classroom" | "library" | "cafe" | "lab" | "advisor-office" | null;
+type LocationId = "dorm" | "classroom" | "library" | "cafe" | "lab" | "advisor-office" | null;
 type PanelType = "none" | "location" | "npc" | "course" | "project" | "object";
-type SceneKey = "GameScene" | "InteriorScene";
+type SceneKey = "GameScene" | "ClassroomScene";
+type DayType = "class" | "lab" | "off";
+type FreeActionType = "rest" | "social" | "project" | "study" | "skip";
 
 interface PlayerPosition {
   x: number;
@@ -19,12 +20,16 @@ interface GameStore {
   day: number;
   week: number;
   currentSemester: Semester | null;
+  dayType: DayType; // class | lab | off
+  mandatoryActivityComplete: boolean; // true if mandatory lesson/lab completed for current day
+  freeActionsRemaining: number; // 0-3, decrements when free action used
+  sleepConfirmationOpen: boolean; // true when sleep confirmation modal should show
+  completedMandatoryActivityId: string | null; // lesson or lab id that satisfied today's mandatory activity
   
   // Location & UI
   currentLocation: LocationId;
   activePanel: PanelType;
   selectedNpcName: string | null;
-  interactedObject: InteriorObject | null; // Track which object triggered the modal
   menuOpen: boolean;
   
   // Lesson modal
@@ -33,7 +38,7 @@ interface GameStore {
   
   // Scene & world state
   currentScene: SceneKey;
-  currentBuilding: LocationId; // which building interior the player is currently in
+  currentBuilding: LocationId; // which building is the player in (for ClassroomScene context)
   playerPosition: PlayerPosition | null; // saved position for returning to GameScene
   
   // Player state
@@ -53,7 +58,6 @@ interface GameStore {
   openNpcPanel: (npcName: string) => void;
   openCoursePanel: () => void;
   openProjectPanel: () => void;
-  openObjectPanel: (object: InteriorObject) => void;
   closePanel: () => void;
   toggleMenu: () => void;
   
@@ -66,6 +70,13 @@ interface GameStore {
   exitBuilding: () => void;
   
   advanceWeek: () => void;
+  completeMandatoryActivity: (activityId: string) => void;
+  openSleepConfirmation: () => void;
+  confirmSleep: (energyRecovery: number) => void;
+  cancelSleepConfirmation: () => void;
+  advanceToNextDay: () => void;
+  useFreeAction: (actionType: FreeActionType, effects: Partial<PlayerStats>) => void;
+  
   addCompletedLesson: (lessonId: string, courseId: string) => void;
   updateStats: (updates: Partial<PlayerStats>) => void;
   unlockProjectFeature: (featureId: string) => void;
@@ -80,12 +91,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
   day: 1,
   week: 1,
   currentSemester: null,
+  dayType: "class" as DayType, // Monday = class
+  mandatoryActivityComplete: false,
+  freeActionsRemaining: 3,
+  sleepConfirmationOpen: false,
+  completedMandatoryActivityId: null,
   
   // Location & UI state
   currentLocation: null,
   activePanel: "none",
   selectedNpcName: null,
-  interactedObject: null,
   menuOpen: false,
   
   // Lesson modal state
@@ -127,37 +142,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
       currentLocation: location,
       activePanel: "location",
       selectedNpcName: null,
-      interactedObject: null,
     }),
   openNpcPanel: (npcName) =>
     set({
       activePanel: "npc",
       selectedNpcName: npcName,
-      interactedObject: null,
     }),
   openCoursePanel: () =>
     set({
       activePanel: "course",
       selectedNpcName: null,
-      interactedObject: null,
     }),
   openProjectPanel: () =>
     set({
       activePanel: "project",
-      selectedNpcName: null,
-      interactedObject: null,
-    }),
-  openObjectPanel: (object) =>
-    set({
-      activePanel: "object",
-      interactedObject: object,
       selectedNpcName: null,
     }),
   closePanel: () =>
     set({
       activePanel: "none",
       selectedNpcName: null,
-      interactedObject: null,
     }),
   
   // Action: menu
@@ -181,7 +185,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // Action: scene & building transitions
   enterBuilding: (buildingId, playerPos) =>
     set({
-      currentScene: "InteriorScene",
+      currentScene: "ClassroomScene",
       currentBuilding: buildingId,
       playerPosition: playerPos,
       activePanel: "none", // close any open panels
@@ -206,6 +210,98 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     
     set({ week: newWeek, day: newDay });
+  },
+  
+  // Mark mandatory activity (lesson or lab) as complete for the day
+  completeMandatoryActivity: (activityId) => {
+    set({
+      mandatoryActivityComplete: true,
+      completedMandatoryActivityId: activityId,
+    });
+  },
+  
+  // Open sleep confirmation modal
+  openSleepConfirmation: () => {
+    set({ sleepConfirmationOpen: true, activePanel: "object" });
+  },
+  
+  // Close sleep confirmation modal without advancing
+  cancelSleepConfirmation: () => {
+    set({ sleepConfirmationOpen: false });
+  },
+  
+  // Confirm sleep: apply energy recovery, advance day, reset daily state
+  confirmSleep: (energyRecovery) => {
+    const state = get();
+    
+    // Apply energy recovery
+    const newEnergy = Math.min(100, state.stats.energy + energyRecovery);
+    
+    // Advance to next day
+    state.advanceToNextDay();
+    
+    // Update energy and close modal
+    set({ sleepConfirmationOpen: false });
+    state.updateStats({ energy: newEnergy });
+  },
+  
+  // Advance to next day: increment day, or week+day if week ends
+  advanceToNextDay: () => {
+    const state = get();
+    let newDay = state.day + 1;
+    let newWeek = state.week;
+    
+    // Determine day type for new day
+    const getDayType = (d: number): DayType => {
+      const dayOfWeek = ((d - 1) % 7) + 1; // 1-7 (Mon-Sun)
+      if (dayOfWeek >= 1 && dayOfWeek <= 3) return "class"; // Mon-Wed
+      if (dayOfWeek === 4) return "lab"; // Thu
+      return "off"; // Fri-Sun
+    };
+    
+    // End of week? Advance to next week
+    if (newDay > 7) {
+      newDay = 1;
+      newWeek = state.week + 1;
+      
+      // Semester ends after week 8
+      if (newWeek > 8) {
+        console.log("✓ Semester ended!");
+        newWeek = 8; // Clamp to prevent further advancement
+      }
+    }
+    
+    // Reset daily state for new day
+    const newDayType = getDayType(newDay);
+    set({
+      day: newDay,
+      week: newWeek,
+      dayType: newDayType,
+      mandatoryActivityComplete: false,
+      freeActionsRemaining: 3,
+      completedMandatoryActivityId: null,
+    });
+    
+    console.log(`✓ Advanced to Week ${newWeek} Day ${newDay} (${newDayType})`);
+  },
+  
+  // Use a free action and apply its effects
+  useFreeAction: (actionType, effects) => {
+    const state = get();
+    
+    // Check if free actions available
+    if (state.freeActionsRemaining <= 0) {
+      console.warn("No free actions remaining for today");
+      return;
+    }
+    
+    // Apply effects to stats
+    state.updateStats(effects);
+    
+    // Decrement free actions
+    set({ freeActionsRemaining: state.freeActionsRemaining - 1 });
+    
+    console.log(`✓ Free action used: ${actionType}. Remaining: ${state.freeActionsRemaining - 1}`);
   },
   
   // Action: learning & courses
@@ -310,6 +406,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       npcRelationships,
       day: 1,
       week: 1,
+      dayType: "class", // Day 1 is Monday = class day
+      mandatoryActivityComplete: false,
+      freeActionsRemaining: 3,
+      completedMandatoryActivityId: null,
     });
   },
 }));

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useGameStore } from "../store/useGameStore";
 import { StatBar } from "./ui/StarBar";
+import { getCurrentDaySummary, canSleepNow } from "../game/systems/timeSystem";
 
 type TabType = "stats" | "course" | "project";
 
@@ -16,12 +17,13 @@ type TabType = "stats" | "course" | "project";
 export function Sidebar() {
   const [activeTab, setActiveTab] = useState<TabType>("stats");
   const {
-    week,
-    day,
     stats,
     courseCompletions,
     projectState,
   } = useGameStore();
+
+  const daySummary = getCurrentDaySummary();
+  const canSleep = canSleepNow();
 
   return (
     <div className="sidebar">
@@ -29,7 +31,10 @@ export function Sidebar() {
       <div className="sidebar-header">
         <div className="sidebar-title">AI Semester Sim</div>
         <div className="sidebar-progress">
-          Week {week} • Day {day}
+          Week {daySummary.week} • {daySummary.dayName}
+        </div>
+        <div className="sidebar-day-type">
+          {daySummary.dayTypeLabel}
         </div>
       </div>
 
@@ -60,6 +65,23 @@ export function Sidebar() {
         {/* Stats Tab */}
         {activeTab === "stats" && (
           <div className="sidebar-section">
+            <h2>Day Progress</h2>
+            <div className="sidebar-day-info">
+              <div className="day-info-row">
+                <span className="label">Mandatory Activity:</span>
+                <span className="value">{daySummary.mandatoryActivityLabel}</span>
+              </div>
+              <div className="day-info-row">
+                <span className="label">Free Actions:</span>
+                <span className="value">{daySummary.freeActionsRemaining}/3</span>
+              </div>
+              {canSleep && (
+                <div className="day-info-hint">
+                  💤 Ready to sleep
+                </div>
+              )}
+            </div>
+
             <h2>Player Stats</h2>
             <div className="sidebar-stats">
               <StatBar label="Energy" value={stats.energy} />
