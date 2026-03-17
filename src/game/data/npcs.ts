@@ -1,15 +1,16 @@
 import type { NpcProfile } from "../types/npc";
 
 /**
- * MVP NPC roster - 5 NPCs distributed across campus locations.
+ * MVP NPC roster - 5 NPCs distributed across campus.
  * Each has a personality profile that influences their mood and behavior.
+ * 
+ * Positions are defined in `relativeNpcLayout` constant below as normalized coordinates (0.0-1.0).
+ * Actual pixel positions computed at runtime based on canvas dimensions.
  */
 export const npcProfiles: NpcProfile[] = [
   {
     id: "ava",
     name: "Ava",
-    x: 260,
-    y: 300,
     mood: "focused",
     traits: {
       ambition: 90,
@@ -21,8 +22,6 @@ export const npcProfiles: NpcProfile[] = [
   {
     id: "miles",
     name: "Miles",
-    x: 700,
-    y: 220,
     mood: "social",
     traits: {
       ambition: 60,
@@ -34,8 +33,6 @@ export const npcProfiles: NpcProfile[] = [
   {
     id: "alex",
     name: "Alex",
-    x: 430,
-    y: 200,
     mood: "stressed",
     traits: {
       ambition: 75,
@@ -47,8 +44,6 @@ export const npcProfiles: NpcProfile[] = [
   {
     id: "jordan",
     name: "Jordan",
-    x: 770,
-    y: 350,
     mood: "focused",
     traits: {
       ambition: 70,
@@ -60,8 +55,6 @@ export const npcProfiles: NpcProfile[] = [
   {
     id: "casey",
     name: "Casey",
-    x: 620,
-    y: 400,
     mood: "social",
     traits: {
       ambition: 65,
@@ -71,3 +64,15 @@ export const npcProfiles: NpcProfile[] = [
     },
   },
 ];
+
+/**
+ * Relative NPC layout - defines normalized position (0.0-1.0) for each NPC
+ * Actual pixel positions computed at runtime: x = width * relativeNpcLayout[id].x
+ */
+export const relativeNpcLayout: Record<string, { x: number; y: number }> = {
+  ava: { x: 0.33, y: 0.52 },
+  miles: { x: 0.73, y: 0.37 },
+  alex: { x: 0.68, y: 0.56 },
+  jordan: { x: 0.75, y: 0.70 },
+  casey: { x: 0.42, y: 0.70 },
+};

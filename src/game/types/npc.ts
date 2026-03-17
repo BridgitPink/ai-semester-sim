@@ -10,8 +10,6 @@ export interface NpcTraits {
 export interface NpcProfile {
   id: string;
   name: string;
-  x: number;
-  y: number;
   mood: NpcMood;
   traits: NpcTraits;
 }

@@ -76,6 +76,9 @@ export default function App() {
           debug: false,
         },
       },
+      input: {
+        keyboard: true,
+      },
       scene: [GameScene],
       scale: {
         mode: Phaser.Scale.FIT,

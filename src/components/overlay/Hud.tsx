@@ -2,15 +2,15 @@ import { useEffect } from "react";
 import { useGameStore } from "../../store/useGameStore";
 import { MenuOverlay } from "./MenuOverlay";
 import { InteractionModal } from "./InteractionModal";
+import { LessonModal } from "./LessonModal";
 
 /**
  * HUD Component - Manages overlay modals and keyboard input
  * 
- * No longer renders top-left HUD (moved to Sidebar)
- * Handles:
- * - Menu toggle (M/Tab key)
- * - Menu overlay rendering
- * - Interaction modal rendering
+ * Renders:
+ * - Menu overlay (M/Tab key)
+ * - Interaction modals (contextual panels)
+ * - Lesson modal (lesson content display)
  */
 export function Hud() {
   const { toggleMenu } = useGameStore();
@@ -36,6 +36,9 @@ export function Hud() {
 
       {/* Interaction Modal */}
       <InteractionModal />
+
+      {/* Lesson Modal */}
+      <LessonModal />
     </>
   );
 }

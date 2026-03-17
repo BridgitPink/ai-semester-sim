@@ -1,5 +1,6 @@
 import { useGameStore } from "../../store/useGameStore";
 import { StatBar } from "../ui/StarBar";
+import { PanelSection } from "../ui/PanelSection";
 
 export function MenuOverlay() {
   const {
@@ -7,6 +8,7 @@ export function MenuOverlay() {
     toggleMenu,
     week,
     day,
+    currentSemester,
     stats,
     courseCompletions,
     projectState,
@@ -17,108 +19,115 @@ export function MenuOverlay() {
   return (
     <>
       <div className="overlay-backdrop" onClick={toggleMenu} />
-      <div className="modal">
+      <div className="modal modal--large">
         <div className="modal-content">
           <div className="modal-header">
             <h1>Menu</h1>
             <p>Press M or Tab to close</p>
           </div>
 
-          <div className="modal-body">
+          <div className="modal-body modal-body--scrollable">
             {/* Progression Section */}
-            <div className="modal-section">
-              <h2>Progression</h2>
-              <p style={{ marginBottom: "16px", color: "var(--color-text-secondary)" }}>
-                Week {week}, Day {day}
-              </p>
-            </div>
+            <PanelSection title="Progression">
+              <div className="progression-info">
+                <p>
+                  <strong>Week {week}</strong>, Day {day}
+                </p>
+                {currentSemester && (
+                  <p style={{ color: "var(--color-text-secondary)" }}>
+                    {currentSemester.title}
+                  </p>
+                )}
+              </div>
+            </PanelSection>
 
             {/* Stats Section */}
-            <div className="modal-section">
-              <h2>Stats</h2>
-              <StatBar label="Energy" value={stats.energy} />
-              <StatBar label="Focus" value={stats.focus} />
-              <StatBar label="Stress" value={stats.stress} />
-              <StatBar label="Confidence" value={stats.confidence} />
-              <StatBar label="Knowledge" value={stats.knowledge} />
-              <StatBar label="Project" value={stats.projectProgress} />
-            </div>
+            <PanelSection title="Player Stats">
+              <div className="stats-grid">
+                <StatBar label="Energy" value={stats.energy} />
+                <StatBar label="Focus" value={stats.focus} />
+                <StatBar label="Stress" value={stats.stress} />
+                <StatBar label="Confidence" value={stats.confidence} />
+                <StatBar label="Knowledge" value={stats.knowledge} />
+                <StatBar label="Project Progress" value={stats.projectProgress} />
+              </div>
+            </PanelSection>
 
             {/* Courses Section */}
             {courseCompletions.length > 0 && (
-              <div className="modal-section">
-                <h2>Courses</h2>
-                {courseCompletions.map((course) => (
-                  <div key={course.courseId} style={{ marginBottom: "12px" }}>
-                    <div style={{ marginBottom: "6px" }}>
-                      <span style={{ fontSize: "14px", fontWeight: "500" }}>
-                        {course.courseId}
-                      </span>
-                      {" "}
-                      <span style={{ color: "var(--color-text-secondary)" }}>
-                        {course.progressPercent}%
-                      </span>
+              <PanelSection title="Courses">
+                <div className="courses-list">
+                  {courseCompletions.map((completion) => (
+                    <div key={completion.courseId} className="course-card">
+                      <div className="course-card-header">
+                        <h3>{completion.courseId}</h3>
+                        <span className="course-progress">
+                          {completion.progressPercent}%
+                        </span>
+                      </div>
+                      <div className="course-progress-bar">
+                        <div
+                          className="course-progress-fill"
+                          style={{ width: `${completion.progressPercent}%` }}
+                        />
+                      </div>
+                      <p className="course-status">
+                        {completion.lessonsCompleted.length} lessons completed
+                      </p>
+                      {completion.isCompleted && (
+                        <p className="course-completed">✓ Course Complete</p>
+                      )}
                     </div>
-                    <div
-                      style={{
-                        width: "100%",
-                        height: "8px",
-                        background: "var(--color-bg-tertiary)",
-                        borderRadius: "4px",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: `${course.progressPercent}%`,
-                          height: "100%",
-                          background:
-                            "linear-gradient(90deg, var(--color-accent), var(--color-accent-light))",
-                          borderRadius: "4px",
-                          transition: "width var(--transition-standard)",
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </PanelSection>
             )}
 
             {/* Project Section */}
-            <div className="modal-section">
-              <h2>Project</h2>
-              <p style={{ color: "var(--color-text-secondary)", marginBottom: "8px" }}>
-                Progress: {stats.projectProgress}%
-              </p>
+            <PanelSection title="Final Project">
+              <div className="project-progress">
+                <div className="project-progress-header">
+                  <span>Overall Progress</span>
+                  <span className="project-progress-value">
+                    {stats.projectProgress}%
+                  </span>
+                </div>
+                <div className="project-progress-bar">
+                  <div
+                    className="project-progress-fill"
+                    style={{ width: `${stats.projectProgress}%` }}
+                  />
+                </div>
+              </div>
+
               {projectState.unlockedFeatures.length > 0 && (
-                <details style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
-                  <summary style={{ cursor: "pointer", marginBottom: "8px" }}>
-                    Unlocked Features ({projectState.unlockedFeatures.length})
-                  </summary>
-                  <ul style={{ margin: "8px 0 0 0", paddingLeft: "20px" }}>
+                <div className="project-features">
+                  <h4>Unlocked Features ({projectState.unlockedFeatures.length})</h4>
+                  <ul className="feature-list">
                     {projectState.unlockedFeatures.map((feature) => (
-                      <li key={feature}>{feature}</li>
+                      <li key={feature}>
+                        <span className="feature-icon">✓</span> {feature}
+                      </li>
                     ))}
                   </ul>
-                </details>
+                </div>
               )}
-            </div>
+            </PanelSection>
 
             {/* Controls Section */}
-            <div className="modal-section">
-              <h2>Controls</h2>
-              <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
-                <div style={{ marginBottom: "8px" }}>
+            <PanelSection title="Controls">
+              <div className="controls-list">
+                <div className="control-item">
                   <strong>Arrow Keys</strong> - Move
                 </div>
-                <div style={{ marginBottom: "8px" }}>
+                <div className="control-item">
                   <strong>E</strong> - Interact
                 </div>
-                <div>
+                <div className="control-item">
                   <strong>M / Tab</strong> - Toggle Menu
                 </div>
               </div>
-            </div>
+            </PanelSection>
           </div>
 
           <div className="modal-footer">

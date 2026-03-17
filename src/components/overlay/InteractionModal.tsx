@@ -1,4 +1,7 @@
 import { useGameStore } from "../../store/useGameStore";
+import { CoursePanel } from "./CoursePanel";
+import { ProjectPanel } from "./ProjectPanel";
+import { InteractionPanel } from "./InteractionPanel";
 
 export function InteractionModal() {
   const { activePanel, currentLocation, selectedNpcName, closePanel } =
@@ -11,19 +14,22 @@ export function InteractionModal() {
       <div className="overlay-backdrop" onClick={closePanel} />
       <div className="modal">
         <div className="modal-content">
+          {/* Location Panel */}
           {activePanel === "location" && (
             <>
               <div className="modal-header">
-                <h1>{currentLocation || "Location"}</h1>
-                <p>You have entered a new area</p>
+                <h1>{currentLocation ? currentLocation.toUpperCase() : "Location"}</h1>
+                <p>You have arrived</p>
               </div>
 
               <div className="modal-body">
-                <p style={{ color: "var(--color-text-secondary)" }}>
-                  Explore this location to find NPCs and opportunities.
+                <p style={{ marginBottom: "16px" }}>
+                  You've entered a new area. Explore to find NPCs and opportunities for
+                  growth.
                 </p>
-                <p style={{ color: "var(--color-text-secondary)", fontSize: "13px" }}>
-                  Press E to interact with nearby objects or NPCs.
+                <p style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                  Press E to interact with nearby objects or NPCs. Browse the environment
+                  or talk to someone.
                 </p>
               </div>
 
@@ -35,71 +41,16 @@ export function InteractionModal() {
             </>
           )}
 
-          {activePanel === "npc" && (
-            <>
-              <div className="modal-header">
-                <h1>{selectedNpcName || "NPC"}</h1>
-                <p>You're talking to someone</p>
-              </div>
-
-              <div className="modal-body">
-                <p style={{ color: "var(--color-text-secondary)" }}>
-                  This NPC might have something interesting to say or teach you.
-                </p>
-                <p style={{ color: "var(--color-text-secondary)", fontSize: "13px" }}>
-                  Continue exploring to build relationships and unlock opportunities.
-                </p>
-              </div>
-
-              <div className="modal-footer">
-                <button className="btn" onClick={closePanel}>
-                  Close
-                </button>
-              </div>
-            </>
+          {/* NPC Interaction Panel */}
+          {activePanel === "npc" && selectedNpcName && (
+            <InteractionPanel npcName={selectedNpcName} />
           )}
 
-          {activePanel === "course" && (
-            <>
-              <div className="modal-header">
-                <h1>Course</h1>
-                <p>Start learning today</p>
-              </div>
+          {/* Course Panel */}
+          {activePanel === "course" && <CoursePanel />}
 
-              <div className="modal-body">
-                <p style={{ color: "var(--color-text-secondary)" }}>
-                  Complete lessons to progress through the course and earn new skills.
-                </p>
-              </div>
-
-              <div className="modal-footer">
-                <button className="btn" onClick={closePanel}>
-                  Close
-                </button>
-              </div>
-            </>
-          )}
-
-          {activePanel === "project" && (
-            <>
-              <div className="modal-header">
-                <h1>Project</h1>
-                <p>Build something great</p>
-              </div>
-
-              <div className="modal-body">
-                <p style={{ color: "var(--color-text-secondary)" }}>
-                  Work on your project to apply what you've learned and unlock new features.
-                </p>
-              </div>
-
-              <div className="modal-footer">
-                <button className="btn" onClick={closePanel}>
-                  Close
-                </button>
-              </div>
-            </>
-          )}
+          {/* Project Panel */}
+          {activePanel === "project" && <ProjectPanel />}
         </div>
       </div>
     </>

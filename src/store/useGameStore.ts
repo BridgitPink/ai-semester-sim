@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { PlayerStats } from "../game/types/player";
 import type { Semester } from "../game/types/semester";
-import type { CourseCompletion } from "../game/types/course";
+import type { CourseCompletion, Lesson } from "../game/types/course";
 import type { ProjectState } from "../game/types/player";
 
 type LocationId = "dorm" | "classroom" | "library" | "cafe" | "lab" | "advisor-office" | null;
@@ -18,6 +18,10 @@ interface GameStore {
   activePanel: PanelType;
   selectedNpcName: string | null;
   menuOpen: boolean;
+  
+  // Lesson modal
+  currentLesson: Lesson | null;
+  lessonModalOpen: boolean;
   
   // Player state
   stats: PlayerStats;
@@ -38,6 +42,10 @@ interface GameStore {
   openProjectPanel: () => void;
   closePanel: () => void;
   toggleMenu: () => void;
+  
+  // Lesson modal actions
+  openLessonModal: (lesson: Lesson) => void;
+  closeLessonModal: () => void;
   
   advanceWeek: () => void;
   addCompletedLesson: (lessonId: string, courseId: string) => void;
@@ -60,6 +68,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   activePanel: "none",
   selectedNpcName: null,
   menuOpen: false,
+  
+  // Lesson modal state
+  currentLesson: null,
+  lessonModalOpen: false,
   
   // Player stats
   stats: {
@@ -118,6 +130,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     set({ menuOpen: !state.menuOpen });
   },
+  
+  // Action: lesson modal
+  openLessonModal: (lesson) =>
+    set({
+      currentLesson: lesson,
+      lessonModalOpen: true,
+    }),
+  closeLessonModal: () =>
+    set({
+      currentLesson: null,
+      lessonModalOpen: false,
+    }),
   
   // Action: progression
   advanceWeek: () => {

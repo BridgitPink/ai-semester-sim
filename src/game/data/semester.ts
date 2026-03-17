@@ -88,7 +88,7 @@ const mvpProjectTemplate: FinalProjectTemplate = {
 /**
  * The MVP Semester - one semester, 3 courses, 6 locations
  */
-const mvpSemester: Semester = {
+export const mvpSemester: Semester = {
   id: "spring-2026",
   title: "Spring 2026 - AI Basics Bootcamp",
   totalWeeks: 6,
