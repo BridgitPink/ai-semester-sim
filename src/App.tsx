@@ -1,121 +1,99 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useRef, useState } from "react";
+import Phaser from "phaser";
+import { Hud } from "./components/overlay/Hud";
+import { Sidebar } from "./components/Sidebar";
+import { GameScene } from "./game/phaser/GameScene";
+import { initializeGame } from "./game/bootstrap";
 
-function App() {
-  const [count, setCount] = useState(0)
+/**
+ * Main application component - mounts Phaser game with sidebar layout
+ * Initializes game state on component mount
+ * 
+ * Layout:
+ * - Left sidebar (300px fixed, persistent UI with tabs)
+ * - Right game area (fullscreen Phaser canvas)
+ * - Menu overlay accessible via M or Tab key
+ * - Interaction modals for locations/NPCs (centered over full viewport)
+ */
+export default function App() {
+  const gameRef = useRef<Phaser.Game | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerSize, setContainerSize] = useState({ width: 960, height: 540 });
+
+  // Calculate responsive game size (right column only)
+  useEffect(() => {
+    const updateContainerSize = () => {
+      if (!containerRef.current) return;
+
+      const rect = containerRef.current.getBoundingClientRect();
+      // Game area width and full height
+      const width = Math.floor(rect.width);
+      const height = Math.floor(rect.height);
+
+      setContainerSize({ width, height });
+
+      // Resize Phaser game if it exists
+      if (gameRef.current) {
+        gameRef.current.scale.resize(width, height);
+      }
+    };
+
+    // Initial size calculation
+    const observer = new ResizeObserver(updateContainerSize);
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    // Initial call
+    updateContainerSize();
+
+    // Handle window resize as fallback
+    window.addEventListener("resize", updateContainerSize);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateContainerSize);
+    };
+  }, []);
+
+  // Initialize Phaser game
+  useEffect(() => {
+    if (!containerRef.current || gameRef.current) return;
+
+    // Initialize game state and data
+    initializeGame();
+
+    // Create Phaser game instance with responsive scale
+    gameRef.current = new Phaser.Game({
+      type: Phaser.AUTO,
+      width: containerSize.width,
+      height: containerSize.height,
+      parent: containerRef.current,
+      backgroundColor: "#1e1e2e",
+      physics: {
+        default: "arcade",
+        arcade: {
+          debug: false,
+        },
+      },
+      scene: [GameScene],
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+      },
+    });
+
+    return () => {
+      gameRef.current?.destroy(true);
+      gameRef.current = null;
+    };
+  }, [containerSize]);
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    <div className="app-shell">
+      <Sidebar />
+      <div className="game-area" ref={containerRef} />
+      <Hud />
+    </div>
+  );
 }
-
-export default App
