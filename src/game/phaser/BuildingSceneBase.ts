@@ -1,6 +1,11 @@
 import Phaser from "phaser";
 import { createInteriorLayout, InteriorStyling } from "../systems/interiorLayoutSystem";
 import type { InteriorLayout } from "../systems/interiorLayoutSystem";
+import {
+  checkObjectProximity,
+  handleObjectInteraction,
+} from "../systems/interiorObjectSystem";
+import type { InteriorObject } from "../types/interiorObject";
 import { useGameStore } from "../../store/useGameStore";
 import { createPlayer, type PlayerObject, PLAYER_DEFAULTS } from "./player";
 
@@ -22,6 +27,7 @@ import { createPlayer, type PlayerObject, PLAYER_DEFAULTS } from "./player";
 export abstract class BuildingSceneBase extends Phaser.Scene {
   protected layout!: InteriorLayout;
   protected player!: PlayerObject;
+  protected interiorObjects: InteriorObject[] = [];
 
   // Keyboard input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -211,12 +217,39 @@ export abstract class BuildingSceneBase extends Phaser.Scene {
   protected abstract createInterior(): void;
 
   /**
-   * Setup input handlers (ESC to exit, etc.)
+   * Setup input handlers (ESC to exit, E for object interaction)
    */
   protected setupInputHandlers() {
     this.input.keyboard?.on("keydown-ESC", () => {
       this.exitBuilding();
     });
+
+    this.input.keyboard?.on("keydown-E", () => {
+      this.checkAndHandleObjectInteraction();
+    });
+  }
+
+  /**
+   * Check proximity to interior objects and handle interaction if nearby
+   * Called when player presses E key
+   */
+  protected checkAndHandleObjectInteraction() {
+    if (this.interiorObjects.length === 0 || !this.player) {
+      return;
+    }
+
+    // Check proximity to all objects
+    const result = checkObjectProximity(
+      this.interiorObjects,
+      this.layout,
+      this.player.x,
+      this.player.y
+    );
+
+    // If object found within threshold, handle interaction
+    if (result.objectFound && result.object) {
+      handleObjectInteraction(result.object);
+    }
   }
 
   /**
