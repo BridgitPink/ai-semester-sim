@@ -23,7 +23,7 @@ type DayType = "class" | "lab" | "off";
  * - Day 2 (Tue): class
  * - Day 3 (Wed): class
  * - Day 4 (Thu): lab
- * - Day 5 (Fri): off
+ * - Day 5 (Fri): off (lab building is open)
  * - Day 6 (Sat): off
  * - Day 7 (Sun): off
  *
@@ -76,8 +76,9 @@ export function canSleepNow(): boolean {
   const state = useGameStore.getState();
   const dayType = getCurrentDayType();
 
-  // Off-days: can sleep anytime
-  if (dayType === "off") return true;
+  // Off-days: can sleep only after at least one free action is consumed
+  // (Otherwise: "You're not tired yet")
+  if (dayType === "off") return state.freeActionsRemaining < 3;
 
   // Class/lab days: can sleep only after mandatory activity complete
   return state.mandatoryActivityComplete;
@@ -112,23 +113,28 @@ export function isClassroomOpen(): boolean {
 /**
  * Check if lab should be accessible
  *
- * Lab is open if:
- * - It's a lab day (Thu), AND
- * - Mandatory lab activity is not yet complete
+ * Lab building is open if:
+ * - It's Thursday (lab day) and mandatory lab activity is not yet complete, OR
+ * - It's Friday (open campus day; optional lab access)
  *
  * @returns boolean
  */
 export function isLabOpen(): boolean {
   const state = useGameStore.getState();
   const dayType = getCurrentDayType();
+  const normalizedDayOfWeek = ((state.day - 1) % 7) + 1;
 
-  // Only open on lab day
-  if (dayType !== "lab") return false;
+  // Thursday: open only until mandatory lab is complete
+  if (normalizedDayOfWeek === 4) {
+    if (dayType !== "lab") return false;
+    return !state.mandatoryActivityComplete;
+  }
 
-  // Only open before mandatory activity is complete
-  if (state.mandatoryActivityComplete) return false;
+  // Friday: lab building is open (optional access)
+  if (normalizedDayOfWeek === 5) return true;
 
-  return true;
+  // Other days: closed
+  return false;
 }
 
 /**

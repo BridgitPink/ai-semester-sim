@@ -11,9 +11,13 @@
  */
 
 import { useGameStore } from "../../store/useGameStore";
-import { courses } from "../data/courses";
 import type { InteriorObject, ProximityCheckResult } from "../types/interiorObject";
 import type { InteriorLayout } from "./interiorLayoutSystem";
+import {
+  getRequiredLessonForToday,
+  getTeacherDeskModeForToday,
+  getCurrentAcademicRequirement,
+} from "./academicScheduleSystem";
 
 /**
  * Proximity detection threshold in pixels
@@ -212,86 +216,97 @@ export function checkObjectProximity(
 export function handleObjectInteraction(object: InteriorObject): void {
   const store = useGameStore.getState();
 
+  const openPlaceholder = (title?: string, subtitle?: string, body?: string) => {
+    store.openObjectModal({
+      variant: "placeholder",
+      interactionType: object.interactionType,
+      object,
+      title,
+      subtitle,
+      body,
+    });
+  };
+
+  const openInfo = (title: string, subtitle: string, body: string) => {
+    store.openObjectModal({
+      variant: "info",
+      interactionType: object.interactionType,
+      object,
+      title,
+      subtitle,
+      body,
+    });
+  };
+
   switch (object.interactionType) {
     case "start-lesson": {
-      // Get first incomplete course from courseCompletions
-      const activeCourseCompletion = store.courseCompletions.find(
-        (cc) => !cc.isCompleted
-      );
+      // Teacher desk is schedule-driven:
+      // - Before completing today's required lesson: open that lesson only.
+      // - After completion (or if nothing required): extra credit only.
+      const requirement = getCurrentAcademicRequirement();
+      const mode = getTeacherDeskModeForToday();
 
-      if (!activeCourseCompletion) {
-        console.log("No incomplete courses available");
-        return;
+      if (requirement.kind !== "class") {
+        store.openObjectModal({
+          variant: "extra-credit",
+          interactionType: object.interactionType,
+          object,
+          title: "Extra Credit",
+          subtitle: "No class session scheduled",
+          body: "Use extra credit to improve your understanding on your own time.",
+        });
+        break;
       }
 
-      // Find course data by ID
-      const courseData = courses.find((c) => c.id === activeCourseCompletion.courseId);
-      if (!courseData) {
-        console.warn(`Course not found: ${activeCourseCompletion.courseId}`);
-        return;
+      if (mode === "extra-credit") {
+        store.openObjectModal({
+          variant: "extra-credit",
+          interactionType: object.interactionType,
+          object,
+          title: "Extra Credit",
+          subtitle: "Optional work",
+          body: "Today's required lesson is already complete. Extra credit is still available.",
+        });
+        break;
       }
 
-      // Find next incomplete lesson
-      const nextIncompleteLesson = courseData.lessons.find(
-        (lesson) => !activeCourseCompletion.lessonsCompleted.includes(lesson.id)
-      );
-
-      if (nextIncompleteLesson) {
-        store.openLessonModal(nextIncompleteLesson);
-        console.log(`✓ Opened lesson: ${nextIncompleteLesson.title}`);
-      } else {
-        console.log(`✓ Course ${activeCourseCompletion.courseId} already completed`);
+      const requiredLesson = getRequiredLessonForToday();
+      if (!requiredLesson) {
+        store.openObjectModal({
+          variant: "extra-credit",
+          interactionType: object.interactionType,
+          object,
+          title: "Extra Credit",
+          subtitle: "No required lesson remaining",
+          body: "You have no scheduled lesson remaining for today. Extra credit is still available.",
+        });
+        break;
       }
+
+      store.openLessonModal(requiredLesson);
+      console.log(`✓ Opened scheduled lesson: ${requiredLesson.title}`);
       break;
     }
 
-    case "review-course": {
-      // MVP: CoursePanel already shows the active incomplete course
-      // Just log that review was triggered
-      const activeCourseCompletion = store.courseCompletions.find(
-        (cc) => !cc.isCompleted
-      );
-      if (activeCourseCompletion) {
-        console.log(
-          `✓ Reviewing course: ${activeCourseCompletion.courseId}`
+    case "lab-activity": {
+      const requirement = getCurrentAcademicRequirement();
+      if (requirement.kind !== "lab") {
+        openInfo(
+          "Lab",
+          "Not scheduled today",
+          "The lab is only required on Thursdays."
         );
+        break;
       }
-      break;
-    }
 
-    case "practice-exercise": {
-      // Placeholder: Practice with current course
-      const activeCourseCompletion = store.courseCompletions.find(
-        (cc) => !cc.isCompleted
-      );
-      if (activeCourseCompletion) {
-        console.log(
-          `✓ Practice exercise opened for: ${activeCourseCompletion.courseId}`
-        );
-      } else {
-        console.log("✓ No active course for practice");
-      }
-      break;
-    }
-
-    case "reference-materials": {
-      // Placeholder: Browse reference materials
-      console.log("✓ Reference materials accessed - learning resources available");
-      break;
-    }
-
-    case "course-goals": {
-      // Placeholder: Review course goals and milestones
-      const activeCourseCompletion = store.courseCompletions.find(
-        (cc) => !cc.isCompleted
-      );
-      if (activeCourseCompletion) {
-        console.log(
-          `✓ Course goals reviewed for: ${activeCourseCompletion.courseId}`
-        );
-      } else {
-        console.log("✓ Course goals and milestones displayed");
-      }
+      store.openObjectModal({
+        variant: "lab",
+        interactionType: object.interactionType,
+        object,
+        title: requirement.title,
+        subtitle: "Lab activity",
+        body: requirement.description,
+      });
       break;
     }
 
@@ -310,7 +325,8 @@ export function handleObjectInteraction(object: InteriorObject): void {
     }
 
     default: {
-      console.warn(`Unknown interaction type: ${object.interactionType}`);
+      // MVP rule: every non-exit interior interaction must open a window.
+      openPlaceholder();
     }
   }
 }

@@ -3,12 +3,24 @@ import type { PlayerStats } from "../game/types/player";
 import type { Semester } from "../game/types/semester";
 import type { CourseCompletion, Lesson } from "../game/types/course";
 import type { ProjectState } from "../game/types/player";
+import type { InteriorObject, ObjectInteractionType } from "../game/types/interiorObject";
 
-type LocationId = "dorm" | "classroom" | "library" | "cafe" | "lab" | "advisor-office" | null;
+export type LocationId = "dorm" | "classroom" | "library" | "cafe" | "lab" | "advisor-office" | null;
 type PanelType = "none" | "location" | "npc" | "course" | "project" | "object";
 type SceneKey = "GameScene" | "ClassroomScene";
 type DayType = "class" | "lab" | "off";
 type FreeActionType = "rest" | "social" | "project" | "study" | "skip";
+
+type ObjectModalVariant = "placeholder" | "info" | "extra-credit" | "lab";
+
+interface ObjectModalContext {
+  variant: ObjectModalVariant;
+  interactionType: ObjectInteractionType;
+  object: InteriorObject;
+  title?: string;
+  subtitle?: string;
+  body?: string;
+}
 
 interface PlayerPosition {
   x: number;
@@ -25,12 +37,16 @@ interface GameStore {
   freeActionsRemaining: number; // 0-3, decrements when free action used
   sleepConfirmationOpen: boolean; // true when sleep confirmation modal should show
   completedMandatoryActivityId: string | null; // lesson or lab id that satisfied today's mandatory activity
+  labActivityStatus: "not-started" | "complete"; // current day's lab activity status (Thu only)
   
   // Location & UI
   currentLocation: LocationId;
   activePanel: PanelType;
   selectedNpcName: string | null;
   menuOpen: boolean;
+
+  // Object interaction modal (placeholder/info/extra-credit/lab)
+  objectModal: ObjectModalContext | null;
   
   // Lesson modal
   currentLesson: Lesson | null;
@@ -60,6 +76,10 @@ interface GameStore {
   openProjectPanel: () => void;
   closePanel: () => void;
   toggleMenu: () => void;
+
+  // Object modal actions
+  openObjectModal: (ctx: ObjectModalContext) => void;
+  clearObjectModal: () => void;
   
   // Lesson modal actions
   openLessonModal: (lesson: Lesson) => void;
@@ -71,6 +91,8 @@ interface GameStore {
   
   advanceWeek: () => void;
   completeMandatoryActivity: (activityId: string) => void;
+  skipMandatoryActivityForToday: () => void;
+  completeLabActivityForToday: () => void;
   openSleepConfirmation: () => void;
   confirmSleep: (energyRecovery: number) => void;
   cancelSleepConfirmation: () => void;
@@ -96,12 +118,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
   freeActionsRemaining: 3,
   sleepConfirmationOpen: false,
   completedMandatoryActivityId: null,
+  labActivityStatus: "not-started",
   
   // Location & UI state
   currentLocation: null,
   activePanel: "none",
   selectedNpcName: null,
   menuOpen: false,
+
+  objectModal: null,
   
   // Lesson modal state
   currentLesson: null,
@@ -162,6 +187,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       activePanel: "none",
       selectedNpcName: null,
+      sleepConfirmationOpen: false,
+      objectModal: null,
     }),
   
   // Action: menu
@@ -169,6 +196,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const state = get();
     set({ menuOpen: !state.menuOpen });
   },
+
+  openObjectModal: (ctx) =>
+    set({
+      activePanel: "object",
+      objectModal: ctx,
+      sleepConfirmationOpen: false,
+    }),
+
+  clearObjectModal: () =>
+    set({
+      objectModal: null,
+      activePanel: "none",
+    }),
   
   // Action: lesson modal
   openLessonModal: (lesson) =>
@@ -195,6 +235,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       currentScene: "GameScene",
       currentBuilding: null,
       playerPosition: null,
+      activePanel: "none",
+      sleepConfirmationOpen: false,
+      objectModal: null,
     }),
   
   // Action: progression
@@ -219,15 +262,49 @@ export const useGameStore = create<GameStore>((set, get) => ({
       completedMandatoryActivityId: activityId,
     });
   },
+
+  // Skip today's mandatory academic activity with consequences
+  // This exists to keep sleep as the only day-advance action while still allowing the player to opt out.
+  skipMandatoryActivityForToday: () => {
+    const state = get();
+    set({
+      mandatoryActivityComplete: true,
+      completedMandatoryActivityId: "skipped",
+    });
+
+    // Consequences (kept simple and clearly negative)
+    state.updateStats({
+      stress: Math.min(100, state.stats.stress + 12),
+      confidence: Math.max(0, state.stats.confidence - 10),
+      knowledge: Math.max(0, state.stats.knowledge - 5),
+      focus: Math.max(0, state.stats.focus - 10),
+    });
+  },
+
+  // Complete today's lab activity (Thu)
+  completeLabActivityForToday: () => {
+    const state = get();
+    set({
+      labActivityStatus: "complete",
+    });
+    state.completeMandatoryActivity("lab-build-study-helper");
+
+    // Small, positive reward
+    state.updateStats({
+      knowledge: Math.min(100, state.stats.knowledge + 10),
+      projectProgress: Math.min(100, state.stats.projectProgress + 8),
+      focus: Math.max(0, Math.min(100, state.stats.focus - 5)),
+    });
+  },
   
   // Open sleep confirmation modal
   openSleepConfirmation: () => {
-    set({ sleepConfirmationOpen: true, activePanel: "object" });
+    set({ sleepConfirmationOpen: true, activePanel: "object", objectModal: null });
   },
   
   // Close sleep confirmation modal without advancing
   cancelSleepConfirmation: () => {
-    set({ sleepConfirmationOpen: false });
+    set({ sleepConfirmationOpen: false, activePanel: "none" });
   },
   
   // Confirm sleep: apply energy recovery, advance day, reset daily state
@@ -241,7 +318,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     state.advanceToNextDay();
     
     // Update energy and close modal
-    set({ sleepConfirmationOpen: false });
+    set({ sleepConfirmationOpen: false, activePanel: "none" });
     state.updateStats({ energy: newEnergy });
   },
   
@@ -280,6 +357,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       mandatoryActivityComplete: false,
       freeActionsRemaining: 3,
       completedMandatoryActivityId: null,
+      labActivityStatus: "not-started",
     });
     
     console.log(`✓ Advanced to Week ${newWeek} Day ${newDay} (${newDayType})`);
@@ -410,6 +488,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       mandatoryActivityComplete: false,
       freeActionsRemaining: 3,
       completedMandatoryActivityId: null,
+      labActivityStatus: "not-started",
     });
   },
 }));

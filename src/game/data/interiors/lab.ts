@@ -129,7 +129,7 @@ export const LAB_OBJECTS: InteriorObject[] = [
     relativeY: 0.0,
     width: 90,
     height: 60,
-    interactionType: "review-course",
+    interactionType: "lab-activity",
     label: "Lab Tech",
     color: 0x8d6e63,
     isCollider: true,

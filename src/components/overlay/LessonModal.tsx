@@ -1,5 +1,6 @@
 import { useGameStore } from "../../store/useGameStore";
 import { findCourseForLesson, onCourseCompleted } from "../../game/systems/semesterSystem";
+import { getRequiredLessonForToday } from "../../game/systems/academicScheduleSystem";
 
 /**
  * LessonModal Component - Displays full lesson content and completion interface
@@ -15,12 +16,17 @@ export function LessonModal() {
     courseCompletions,
     addCompletedLesson,
     updateStats,
+    completeMandatoryActivity,
   } = useGameStore();
 
   if (!lessonModalOpen || !currentLesson) return null;
 
   const handleCompleteLesson = () => {
     const lesson = currentLesson;
+
+    // Capture today's required lesson BEFORE we mutate completion state.
+    const requiredLesson = getRequiredLessonForToday();
+    const satisfiesTodaysRequirement = requiredLesson?.id === lesson.id;
     
     // Find which course this lesson belongs to using safe traversal
     const course = findCourseForLesson(lesson.id);
@@ -40,6 +46,11 @@ export function LessonModal() {
 
     // Add lesson to completed
     addCompletedLesson(lesson.id, course.id);
+
+    // Consume today's academic block if this is the scheduled required lesson.
+    if (satisfiesTodaysRequirement) {
+      completeMandatoryActivity(lesson.id);
+    }
     
     // Apply rewards
     updateStats({

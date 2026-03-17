@@ -5,6 +5,8 @@ import { useGameStore, type LocationId } from "../../store/useGameStore";
 import type { LocationProfile } from "../data/locations";
 import { computeResponsiveLayout } from "../systems/layoutSystem";
 import { validateNpcSpawn } from "../systems/npcPlacementSystem";
+import { getCurrentDayType, isClassroomOpen, isLabOpen } from "../systems/timeSystem";
+import type { InteriorObject } from "../types/interiorObject";
 
 type PlayerRect = Phaser.GameObjects.Rectangle & {
   body: Phaser.Physics.Arcade.Body;
@@ -247,6 +249,37 @@ export class GameScene extends Phaser.Scene {
   private checkInteraction() {
     const store = useGameStore.getState();
 
+    const openClosedBuildingModal = (
+      buildingId: string,
+      buildingName: string,
+      message: string,
+      interactionType: InteriorObject["interactionType"]
+    ) => {
+      const virtualObject: InteriorObject = {
+        id: `${buildingId}-closed-info`,
+        building: buildingId,
+        name: buildingName,
+        relativeX: 0,
+        relativeY: 0,
+        width: 0,
+        height: 0,
+        interactionType,
+        label: buildingName,
+        metadata: {
+          description: message,
+        },
+      };
+
+      store.openObjectModal({
+        variant: "info",
+        interactionType,
+        object: virtualObject,
+        title: `${buildingName} is closed`,
+        subtitle: "Come back later",
+        body: message,
+      });
+    };
+
     // Check building interactions FIRST (priority over NPCs)
     for (const building of this.buildings) {
       const { location, position } = building;
@@ -265,6 +298,27 @@ export class GameScene extends Phaser.Scene {
       const interactionThreshold = maxDimension / 2 + 25; // 25px padding buffer
 
       if (distToBuilding < interactionThreshold) {
+        // Building availability rules
+        if (location.id === "classroom" && !isClassroomOpen()) {
+          const dayType = getCurrentDayType();
+          const msg =
+            dayType !== "class"
+              ? "Classes run Monday through Wednesday. The classroom is closed today."
+              : "You already completed today's required lesson. The classroom is closed until tomorrow.";
+          openClosedBuildingModal("classroom", location.name, msg, "course-goals");
+          return;
+        }
+
+        if (location.id === "lab" && !isLabOpen()) {
+          const dayType = getCurrentDayType();
+          const msg =
+            dayType !== "lab"
+              ? "The lab is open Thursday and Friday. The lab is closed today."
+              : "You already completed today's required lab activity. The lab is closed until next lab day.";
+          openClosedBuildingModal("lab", location.name, msg, "lab-activity");
+          return;
+        }
+
         // Enter the shared interior scene with the selected building context
         store.enterBuilding(location.id as LocationId, {
           x: this.player.x,

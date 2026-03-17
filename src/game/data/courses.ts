@@ -110,8 +110,27 @@ export const buildAiStudyHelperCourse: Course = {
   },
 };
 
+export const systemsThinkingCourse: Course = {
+  id: "systems-thinking-ai",
+  title: "Systems Thinking for AI",
+  description: "Learn to reason about AI systems end-to-end: goals, data, tradeoffs, and failure modes.",
+  lessons: [
+    {
+      id: "lesson-stai-01",
+      title: "Thinking in Systems",
+      concept: "Inputs → Process → Outputs (and feedback loops)",
+      interactionType: "read",
+      shortPrompt: `AI features don't live in isolation—they live inside systems. A system has inputs (data, prompts, user actions), a process (models, logic, policies), and outputs (text, decisions, UI changes). What makes systems hard is feedback: outputs change future inputs. If an AI tutor gives confusing answers, the user may ask worse questions next time. If a recommender shows extreme content, it can shift user behavior. Systems thinking means mapping the full loop, then designing guardrails: clear goals, good defaults, monitoring, and recovery plans when things go wrong. In this course, you'll practice seeing the whole pipeline, not just the model.` ,
+      completionReward: { knowledge: 15, confidence: 10 },
+    },
+  ],
+  milestoneReward: {
+    projectFeatures: ["feature-bonus-architecture"],
+  },
+};
+
 export const courses: Course[] = [
   aiFoundationsCourse,
   dataAndPromptingCourse,
-  buildAiStudyHelperCourse,
+  systemsThinkingCourse,
 ];
