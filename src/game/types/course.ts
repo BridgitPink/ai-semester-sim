@@ -1,6 +1,57 @@
 /**
  * Course and lesson types aligned to CONTENT_MODEL
+ *
+ * NOTE: The lesson UI is data-driven. React components should not hardcode
+ * lesson text; they render `summary` + `contentBlocks`.
  */
+
+export type CourseId =
+  | "ai-foundations"
+  | "data-prompting-basics"
+  | "systems-thinking-ai";
+
+export type LessonInteractionType = "read" | "interactive" | "reflection";
+
+export type LessonContentBlockType = "text" | "video" | "example" | "tip";
+
+export interface TextBlock {
+  type: "text";
+  text: string;
+}
+
+export interface VideoBlock {
+  type: "video";
+  url?: string;
+  title?: string;
+}
+
+export interface ExampleBlock {
+  type: "example";
+  title?: string;
+  text: string;
+}
+
+export interface TipBlock {
+  type: "tip";
+  text: string;
+}
+
+export type LessonContentBlock = TextBlock | VideoBlock | ExampleBlock | TipBlock;
+
+export interface QuizPlaceholder {
+  status: "placeholder";
+  note?: string;
+}
+
+export interface StudyExtensionPlaceholder {
+  status: "placeholder";
+  note?: string;
+}
+
+export interface EffectsPlaceholder {
+  status: "placeholder";
+  note?: string;
+}
 
 /**
  * A single lesson within a course.
@@ -9,9 +60,15 @@
 export interface Lesson {
   id: string;
   title: string;
+  courseId: CourseId;
+  week: number; // 1..8
   concept: string;
-  interactionType: "read" | "interactive" | "reflection"; // for future expansion
-  shortPrompt: string; // 5-10 sentences of lesson content
+  summary: string; // 1 paragraph
+  contentBlocks: LessonContentBlock[];
+  quiz: QuizPlaceholder;
+  studyExtension: StudyExtensionPlaceholder;
+  effects: EffectsPlaceholder;
+  interactionType: LessonInteractionType; // for future expansion
   completionReward: {
     knowledge: number;
     confidence: number;

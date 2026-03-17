@@ -1,6 +1,7 @@
 import { useGameStore } from "../../store/useGameStore";
 import { findCourseForLesson, onCourseCompleted } from "../../game/systems/semesterSystem";
 import { getRequiredLessonForToday } from "../../game/systems/academicScheduleSystem";
+import { LessonContentRenderer } from "../lessons/LessonContentRenderer";
 
 /**
  * LessonModal Component - Displays full lesson content and completion interface
@@ -86,9 +87,13 @@ export function LessonModal() {
           </div>
 
           <div className="modal-body modal-body--lesson">
-            <div className="lesson-content">
-              <p>{currentLesson.shortPrompt}</p>
-            </div>
+            {typeof currentLesson.summary === "string" && currentLesson.summary.trim().length > 0 && (
+              <div className="lesson-summary">
+                <p>{currentLesson.summary}</p>
+              </div>
+            )}
+
+            <LessonContentRenderer contentBlocks={currentLesson.contentBlocks} />
 
             {/* Rewards Preview */}
             <div className="lesson-rewards">

@@ -15,6 +15,7 @@
 
 import { useGameStore } from "../../store/useGameStore";
 import type { Lesson } from "../types/course";
+import { getLabStageForWeek } from "../data/labStages";
 
 export type AcademicRequirement =
   | {
@@ -59,11 +60,23 @@ export function getRequiredLessonForToday(): Lesson | null {
   const completion = state.courseCompletions.find((cc) => cc.courseId === courseId);
   if (!completion) return null;
 
-  const nextIncomplete = course.lessons.find(
-    (lesson) => !completion.lessonsCompleted.includes(lesson.id)
-  );
+  const incomplete = course.lessons
+    .filter((lesson) => !completion.lessonsCompleted.includes(lesson.id))
+    .slice()
+    .sort((a, b) => a.week - b.week);
 
-  return nextIncomplete ?? null;
+  if (incomplete.length === 0) return null;
+
+  // Prefer the current week's lesson.
+  const exactWeek = incomplete.find((l) => l.week === state.week);
+  if (exactWeek) return exactWeek;
+
+  // Catch-up: if behind, pick earliest incomplete <= current week.
+  const eligibleCatchUp = incomplete.find((l) => l.week <= state.week);
+  if (eligibleCatchUp) return eligibleCatchUp;
+
+  // If somehow ahead, pick the earliest remaining.
+  return incomplete[0] ?? null;
 }
 
 export function getCurrentAcademicRequirement(): AcademicRequirement {
@@ -81,12 +94,12 @@ export function getCurrentAcademicRequirement(): AcademicRequirement {
   }
 
   if (state.dayType === "lab") {
+    const stage = getLabStageForWeek(state.week);
     return {
       kind: "lab",
       labActivityId: "lab-build-study-helper",
-      title: "Build Your First AI Study Helper",
-      description:
-        "Hands-on lab day. Build and iterate on a simple AI Study Helper flow.",
+      title: `Lab (Week ${stage.week}): ${stage.title}`,
+      description: stage.summary,
     };
   }
 
