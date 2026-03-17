@@ -1,8 +1,10 @@
 import { useGameStore } from "../../store/useGameStore";
+import { findCourseForLesson, onCourseCompleted } from "../../game/systems/semesterSystem";
 
 /**
  * LessonModal Component - Displays full lesson content and completion interface
  * Rendered inside Hud component alongside other modals
+ * Handles lesson completion, stat rewards, and course milestone detection
  */
 export function LessonModal() {
   const {
@@ -20,25 +22,41 @@ export function LessonModal() {
   const handleCompleteLesson = () => {
     const lesson = currentLesson;
     
-    // Find which course this lesson belongs to
-    const courseCompletion = courseCompletions.find((c) =>
-      // We need to find the course by checking if its ID matches the lesson
-      // For now, we'll use a simple heuristic based on lesson ID prefix
-      lesson.id.startsWith(c.courseId.substring(0, 4))
-    );
+    // Find which course this lesson belongs to using safe traversal
+    const course = findCourseForLesson(lesson.id);
+    if (!course) {
+      console.error(`Course not found for lesson ${lesson.id}`);
+      closeLessonModal();
+      return;
+    }
 
-    if (courseCompletion) {
-      // Add lesson to completed
-      addCompletedLesson(lesson.id, courseCompletion.courseId);
-      
-      // Apply rewards
-      updateStats({
-        knowledge: Math.min(100, completedLessons.length * 15 + lesson.completionReward.knowledge),
-        confidence: Math.min(100, completedLessons.length * 10 + lesson.completionReward.confidence),
-        focus: lesson.completionReward.focus
-          ? Math.min(100, Math.max(0, 80 - completedLessons.length * 5 + lesson.completionReward.focus))
-          : Math.max(0, 80 - completedLessons.length * 5),
-      });
+    // Find course completion tracking
+    const courseCompletion = courseCompletions.find((c) => c.courseId === course.id);
+    if (!courseCompletion) {
+      console.error(`Course completion not found for ${course.id}`);
+      closeLessonModal();
+      return;
+    }
+
+    // Add lesson to completed
+    addCompletedLesson(lesson.id, course.id);
+    
+    // Apply rewards
+    updateStats({
+      knowledge: Math.min(100, completedLessons.length * 15 + lesson.completionReward.knowledge),
+      confidence: Math.min(100, completedLessons.length * 10 + lesson.completionReward.confidence),
+      focus: lesson.completionReward.focus
+        ? Math.min(100, Math.max(0, 80 - completedLessons.length * 5 + lesson.completionReward.focus))
+        : Math.max(0, 80 - completedLessons.length * 5),
+    });
+
+    // Check if course is now complete after this lesson
+    // The store will have updated courseCompletion.isCompleted in addCompletedLesson
+    // We need to check the updated state
+    const updatedCompletion = useGameStore.getState().courseCompletions.find((c) => c.courseId === course.id);
+    if (updatedCompletion && updatedCompletion.isCompleted && !updatedCompletion.milestoneUnlocked) {
+      // Course just completed - trigger feature unlock
+      onCourseCompleted(course.id);
     }
 
     closeLessonModal();

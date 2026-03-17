@@ -18,8 +18,14 @@ type LocationZone = Phaser.GameObjects.Zone & {
   body: Phaser.Physics.Arcade.StaticBody;
 };
 
+interface SceneData {
+  playerX?: number;
+  playerY?: number;
+}
+
 export class GameScene extends Phaser.Scene {
   private player!: PlayerRect;
+  private restoredPlayerPos?: { x: number; y: number };
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasdKeys!: {
@@ -51,6 +57,13 @@ export class GameScene extends Phaser.Scene {
     super("GameScene");
   }
 
+  init(data: SceneData) {
+    // Store player position passed from ClassroomScene
+    if (data.playerX !== undefined && data.playerY !== undefined) {
+      this.restoredPlayerPos = { x: data.playerX, y: data.playerY };
+    }
+  }
+
   create() {
     this.cameras.main.setBackgroundColor("#2a2d3e");
 
@@ -66,9 +79,15 @@ export class GameScene extends Phaser.Scene {
       color: "#ffffff",
     });
 
-    // Create player FIRST
-    const playerX = canvasWidth * 0.5;
-    const playerY = canvasHeight * 0.5;
+    // Create player FIRST, use restored position if available
+    let playerX = canvasWidth * 0.5;
+    let playerY = canvasHeight * 0.5;
+    
+    if (this.restoredPlayerPos) {
+      playerX = this.restoredPlayerPos.x;
+      playerY = this.restoredPlayerPos.y;
+      this.restoredPlayerPos = undefined; // Clear after using
+    }
 
     const playerRect = this.add.rectangle(playerX, playerY, 28, 28, 0xffd166);
     this.physics.add.existing(playerRect);
@@ -246,12 +265,14 @@ export class GameScene extends Phaser.Scene {
       const interactionThreshold = maxDimension / 2 + 25; // 25px padding buffer
 
       if (distToBuilding < interactionThreshold) {
-        // Find the corresponding location zone to get the ID
-        const locZone = this.locationZones.find((z) => z.locationId === location.id);
-        if (locZone) {
-          store.openLocationPanel(locZone.locationId as any);
-          return;
-        }
+        // ENTER BUILDING: Save player position and transition to ClassroomScene
+        store.enterBuilding(location.id as any, {
+          x: this.player.x,
+          y: this.player.y,
+        });
+        
+        this.scene.start("ClassroomScene");
+        return;
       }
     }
 

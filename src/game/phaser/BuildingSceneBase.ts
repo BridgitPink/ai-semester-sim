@@ -2,22 +2,35 @@ import Phaser from "phaser";
 import { createInteriorLayout, InteriorStyling } from "../systems/interiorLayoutSystem";
 import type { InteriorLayout } from "../systems/interiorLayoutSystem";
 import { useGameStore } from "../../store/useGameStore";
+import { createPlayer, type PlayerObject, PLAYER_DEFAULTS } from "./player";
 
 /**
  * BuildingSceneBase - Abstract base class for all building interior scenes
- * 
+ *
  * Provides:
  * - Automatic inner/outer layout rendering
+ * - Player rendering and movement with bounds clamping
  * - Consistent styling across all building interiors
  * - Event handling (ESC to exit)
  * - Subclasses only implement createInterior() for unique content
- * 
+ *
  * Architecture:
- *   create() calls setupLayout() → drawOuterArea() → drawInnerArea() → createInterior()
+ *   create() calls setupLayout() → drawOuterArea() → drawInnerArea() → setupPlayer() → createInterior() → setupInputHandlers()
+ *   update() handles player movement with inner-area bounds clamping
  *   Subclasses extend and implement createInterior() with their specific UI
  */
 export abstract class BuildingSceneBase extends Phaser.Scene {
   protected layout!: InteriorLayout;
+  protected player!: PlayerObject;
+
+  // Keyboard input
+  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private wasdKeys!: {
+    w: Phaser.Input.Keyboard.Key;
+    a: Phaser.Input.Keyboard.Key;
+    s: Phaser.Input.Keyboard.Key;
+    d: Phaser.Input.Keyboard.Key;
+  };
 
   constructor(sceneKey: string) {
     super(sceneKey);
@@ -37,17 +50,92 @@ export abstract class BuildingSceneBase extends Phaser.Scene {
     // Draw inner area (bordered focus region)
     this.drawInnerArea();
 
+    // Setup keyboard input BEFORE player so keys are ready
+    this.setupKeyboardInput();
+
+    // Create player at center of inner area
+    this.setupPlayer();
+
     // Draw scene-specific content (to be implemented by subclasses)
     this.createInterior();
 
-    // Setup input handlers
+    // Setup input handlers (ESC to exit, etc.)
     this.setupInputHandlers();
 
     this.events.emit("building-scene-created", { sceneKey: this.scene.key });
   }
 
   update() {
-    // To be overridden by subclasses if needed
+    if (!this.player?.body) return;
+
+    const speed = PLAYER_DEFAULTS.SPEED; // 180 px/sec
+    let vx = 0;
+    let vy = 0;
+
+    // Arrow keys
+    if (this.cursors.left?.isDown) vx -= 1;
+    if (this.cursors.right?.isDown) vx += 1;
+    if (this.cursors.up?.isDown) vy -= 1;
+    if (this.cursors.down?.isDown) vy += 1;
+
+    // WASD keys
+    if (this.wasdKeys.a?.isDown) vx -= 1;
+    if (this.wasdKeys.d?.isDown) vx += 1;
+    if (this.wasdKeys.w?.isDown) vy -= 1;
+    if (this.wasdKeys.s?.isDown) vy += 1;
+
+    // Normalize velocity and apply speed
+    if (vx !== 0 || vy !== 0) {
+      const magnitude = Math.sqrt(vx * vx + vy * vy);
+      this.player.body.setVelocity(
+        (vx / magnitude) * speed,
+        (vy / magnitude) * speed
+      );
+    } else {
+      this.player.body.setVelocity(0, 0);
+    }
+
+    // Clamp player position to inner play area bounds
+    const clamped = this.layout.clampToBounds(this.player.x, this.player.y);
+    this.player.setPosition(clamped.x, clamped.y);
+  }
+
+  /**
+   * Setup keyboard input (called in create() before player setup)
+   */
+  private setupKeyboardInput() {
+    this.cursors = this.input.keyboard!.createCursorKeys();
+    this.wasdKeys = this.input.keyboard!.addKeys({
+      w: Phaser.Input.Keyboard.KeyCodes.W,
+      a: Phaser.Input.Keyboard.KeyCodes.A,
+      s: Phaser.Input.Keyboard.KeyCodes.S,
+      d: Phaser.Input.Keyboard.KeyCodes.D,
+    }) as {
+      w: Phaser.Input.Keyboard.Key;
+      a: Phaser.Input.Keyboard.Key;
+      s: Phaser.Input.Keyboard.Key;
+      d: Phaser.Input.Keyboard.Key;
+    };
+  }
+
+  /**
+   * Create player at center of inner play area
+   * Player is visible and ready for movement immediately after scene loads
+   */
+  protected setupPlayer() {
+    // Spawn at center of inner area (pure center, no offset)
+    const spawnX = this.layout.innerArea.x;
+    const spawnY = this.layout.innerArea.y;
+
+    // Create player using factory function (consistent styling across all scenes)
+    this.player = createPlayer(this, spawnX, spawnY);
+
+    // Set depth to render above backgrounds (depth 2) and borders (depth 3)
+    this.player.setDepth(5);
+
+    console.log(
+      `✓ Player created at (${Math.round(spawnX)}, ${Math.round(spawnY)}) inside inner area`
+    );
   }
 
   /**

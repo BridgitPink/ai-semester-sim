@@ -6,6 +6,12 @@ import type { ProjectState } from "../game/types/player";
 
 type LocationId = "dorm" | "classroom" | "library" | "cafe" | "lab" | "advisor-office" | null;
 type PanelType = "none" | "location" | "npc" | "course" | "project";
+type SceneKey = "GameScene" | "ClassroomScene";
+
+interface PlayerPosition {
+  x: number;
+  y: number;
+}
 
 interface GameStore {
   // Progression
@@ -22,6 +28,11 @@ interface GameStore {
   // Lesson modal
   currentLesson: Lesson | null;
   lessonModalOpen: boolean;
+  
+  // Scene & world state
+  currentScene: SceneKey;
+  currentBuilding: LocationId; // which building is the player in (for ClassroomScene context)
+  playerPosition: PlayerPosition | null; // saved position for returning to GameScene
   
   // Player state
   stats: PlayerStats;
@@ -46,6 +57,10 @@ interface GameStore {
   // Lesson modal actions
   openLessonModal: (lesson: Lesson) => void;
   closeLessonModal: () => void;
+  
+  // Scene & building actions
+  enterBuilding: (buildingId: LocationId, playerPos: PlayerPosition) => void;
+  exitBuilding: () => void;
   
   advanceWeek: () => void;
   addCompletedLesson: (lessonId: string, courseId: string) => void;
@@ -72,6 +87,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // Lesson modal state
   currentLesson: null,
   lessonModalOpen: false,
+  
+  // Scene & world state
+  currentScene: "GameScene",
+  currentBuilding: null,
+  playerPosition: null,
   
   // Player stats
   stats: {
@@ -143,14 +163,29 @@ export const useGameStore = create<GameStore>((set, get) => ({
       lessonModalOpen: false,
     }),
   
+  // Action: scene & building transitions
+  enterBuilding: (buildingId, playerPos) =>
+    set({
+      currentScene: "ClassroomScene",
+      currentBuilding: buildingId,
+      playerPosition: playerPos,
+      activePanel: "none", // close any open panels
+    }),
+  exitBuilding: () =>
+    set({
+      currentScene: "GameScene",
+      currentBuilding: null,
+      playerPosition: null,
+    }),
+  
   // Action: progression
   advanceWeek: () => {
     const state = get();
     const newWeek = state.week + 1;
     const newDay = 1;
     
-    // Check if semester ends (MVP: 6 weeks)
-    if (newWeek > 6) {
+    // Check if semester ends (MVP: 8 weeks total)
+    if (newWeek > 8) {
       console.log("Semester ended!");
       return; // Handle semester end in a system
     }
