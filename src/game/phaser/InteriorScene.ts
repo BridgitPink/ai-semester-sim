@@ -123,6 +123,20 @@ export class InteriorScene extends BuildingSceneBase {
         return "[E] Course goals";
       case "leave-classroom":
         return "[E] Exit";
+      case "sleep":
+        return "[E] Sleep";
+      case "study":
+        return "[E] Study";
+      case "storage":
+        return "[E] Storage";
+      case "view-tasks":
+        return "[E] Tasks";
+      case "roommate-bed":
+        return "[E] Roommate's Bed";
+      case "roommate-desk":
+        return "[E] Roommate's Desk";
+      case "roommate-storage":
+        return "[E] Roommate's Storage";
       default:
         return "";
     }

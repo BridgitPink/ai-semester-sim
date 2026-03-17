@@ -280,6 +280,55 @@ export function handleObjectInteraction(object: InteriorObject): void {
       break;
     }
 
+    case "sleep": {
+      // Placeholder for sleep/rest mechanic
+      store.openObjectPanel(object);
+      console.log(`✓ Sleep interaction (placeholder): ${object.label}`);
+      break;
+    }
+
+    case "study": {
+      // Placeholder for study mechanic
+      store.openObjectPanel(object);
+      console.log(`✓ Study interaction (placeholder): ${object.label}`);
+      break;
+    }
+
+    case "storage": {
+      // Placeholder for inventory/storage mechanic
+      store.openObjectPanel(object);
+      console.log(`✓ Storage interaction (placeholder): ${object.label}`);
+      break;
+    }
+
+    case "view-tasks": {
+      // Placeholder for tasks panel
+      store.openObjectPanel(object);
+      console.log(`✓ View tasks interaction (placeholder): ${object.label}`);
+      break;
+    }
+
+    case "roommate-bed": {
+      // Placeholder for roommate interaction
+      store.openObjectPanel(object);
+      console.log(`✓ Roommate bed interaction (placeholder): ${object.label}`);
+      break;
+    }
+
+    case "roommate-desk": {
+      // Placeholder for roommate interaction
+      store.openObjectPanel(object);
+      console.log(`✓ Roommate desk interaction (placeholder): ${object.label}`);
+      break;
+    }
+
+    case "roommate-storage": {
+      // Placeholder for roommate interaction
+      store.openObjectPanel(object);
+      console.log(`✓ Roommate storage interaction (placeholder): ${object.label}`);
+      break;
+    }
+
     default: {
       console.warn(`Unknown interaction type: ${object.interactionType}`);
     }
