@@ -87,7 +87,9 @@ export interface InteriorObject {
    * Optional: Additional data passed to interaction handler
    * Example: { courseId: "ai-foundations" } for chalkboard
    */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown> & {
+    description?: string;
+  };
 
   /**
    * Optional: Whether this object blocks player movement (default: false)
@@ -101,6 +103,20 @@ export interface InteriorObject {
    * Higher values = softer sliding, player can move closer to object
    */
   collisionMargin?: number;
+
+  /**
+   * Optional: Override proximity interaction distance in pixels.
+   * Useful for large furniture or collider objects that should be easy to use.
+   */
+  interactionRange?: number;
+}
+
+/**
+ * Authored interior configuration for a specific building.
+ */
+export interface InteriorConfig {
+  building: string;
+  objects: InteriorObject[];
 }
 
 /**

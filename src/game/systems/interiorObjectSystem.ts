@@ -180,16 +180,17 @@ export function checkObjectProximity(
   playerY: number
 ): ProximityCheckResult {
   let closestObject: InteriorObject | undefined;
-  let closestDistance = INTERACTION_THRESHOLD;
+  let closestDistance = Number.POSITIVE_INFINITY;
 
   for (const object of objects) {
     const objPos = getObjectWorldPosition(object, layout);
+    const interactionThreshold = object.interactionRange ?? INTERACTION_THRESHOLD;
 
     // Distance from player to object center
     const distance = Math.sqrt((playerX - objPos.x) ** 2 + (playerY - objPos.y) ** 2);
 
     // Keep track of closest object within threshold
-    if (distance < closestDistance) {
+    if (distance <= interactionThreshold && distance < closestDistance) {
       closestDistance = distance;
       closestObject = object;
     }
@@ -198,7 +199,7 @@ export function checkObjectProximity(
   return {
     objectFound: closestObject !== undefined,
     object: closestObject,
-    distance: closestDistance,
+    distance: closestObject ? closestDistance : INTERACTION_THRESHOLD,
   };
 }
 

@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import Phaser from "phaser";
 import { Hud } from "../components/overlay/Hud";
 import { GameScene } from "../game/phaser/GameScene";
-import { ClassroomScene } from "../game/phaser/ClassroomScene";
+import { InteriorScene } from "../game/phaser/InteriorScene";
 
 export default function App() {
   const gameRef = useRef<Phaser.Game | null>(null);
@@ -23,7 +23,7 @@ export default function App() {
           debug: false,
         },
       },
-      scene: [GameScene, ClassroomScene],
+      scene: [GameScene, InteriorScene],
     });
 
     return () => {

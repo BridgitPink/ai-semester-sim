@@ -4,6 +4,7 @@
  */
 
 import { useGameStore } from "../../store/useGameStore";
+import type { Course } from "../types/course";
 import type { ProjectState } from "../types/player";
 
 /**
@@ -15,7 +16,7 @@ export function unlockProjectFeatureForCourse(courseId: string) {
   
   if (!currentSemester) return;
   
-  const course = currentSemester.courses.find((c: any) => c.id === courseId);
+  const course = currentSemester.courses.find((c: Course) => c.id === courseId);
   if (!course) return;
 
   // Unlock features tied to this course's milestone

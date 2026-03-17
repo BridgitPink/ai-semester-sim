@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { locations } from "../data/locations";
 import { npcProfiles } from "../data/npcs";
-import { useGameStore } from "../../store/useGameStore";
+import { useGameStore, type LocationId } from "../../store/useGameStore";
 import type { LocationProfile } from "../data/locations";
 import { computeResponsiveLayout } from "../systems/layoutSystem";
 import { validateNpcSpawn } from "../systems/npcPlacementSystem";
@@ -58,7 +58,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   init(data: SceneData) {
-    // Store player position passed from ClassroomScene
+    // Store player position passed from an interior scene
     if (data.playerX !== undefined && data.playerY !== undefined) {
       this.restoredPlayerPos = { x: data.playerX, y: data.playerY };
     }
@@ -265,13 +265,13 @@ export class GameScene extends Phaser.Scene {
       const interactionThreshold = maxDimension / 2 + 25; // 25px padding buffer
 
       if (distToBuilding < interactionThreshold) {
-        // ENTER BUILDING: Save player position and transition to ClassroomScene
-        store.enterBuilding(location.id as any, {
+        // Enter the shared interior scene with the selected building context
+        store.enterBuilding(location.id as LocationId, {
           x: this.player.x,
           y: this.player.y,
         });
         
-        this.scene.start("ClassroomScene");
+        this.scene.start("InteriorScene");
         return;
       }
     }

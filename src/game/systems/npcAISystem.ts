@@ -30,14 +30,10 @@ export function getNpcLine(npc: NpcProfile): string {
  * Mood affects NPC dialogue and player relationship changes
  */
 export function updateNpcMood(_npcId: string, _context: { week?: number; playerAction?: string }): NpcMood {
-  // TODO: Logic to determine mood based on:
-  // - NPC personality traits
-  // - Current week/semester stress level
-  // - Player interaction history via relationships
-  
-  // Stub: return random mood for now
   const moods: NpcMood[] = ["focused", "tired", "social", "stressed"];
-  return moods[Math.floor(Math.random() * moods.length)];
+  const seed = `${_npcId}:${_context.week ?? 0}:${_context.playerAction ?? "idle"}`;
+  const hash = seed.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return moods[hash % moods.length];
 }
 
 /**
@@ -47,16 +43,12 @@ export function updateNpcMood(_npcId: string, _context: { week?: number; playerA
 export function getNpcRoutine(
   _npcId: string
 ): { locationId: string; activity: string; description: string } {
-  // TODO: Return NPC schedule based on:
-  // - Personality traits
-  // - Current semester week
-  // - Relationship with player
-  
-  // Stub: return default
+  const isLibraryRotation = _npcId.charCodeAt(0) % 2 === 0;
+
   return {
-    locationId: "classroom",
-    activity: "studying",
-    description: "Working on assignments",
+    locationId: isLibraryRotation ? "library" : "classroom",
+    activity: isLibraryRotation ? "researching" : "studying",
+    description: isLibraryRotation ? "Digging through reference materials" : "Working on assignments",
   };
 }
 
@@ -69,13 +61,8 @@ export function getNpcRoutine(
  * - Player stats (energy, stress, etc)
  */
 export function interactWithNpc(_npcId: string): { dialogue: string; relationshipDelta: number } {
-  // const store = useGameStore.getState();
-  // const relationship = store.npcRelationships[npcId] || 50;
-  
-  // TODO: Complex dialogue generation or lookup from data
-  // For now, stub response
   return {
-    dialogue: "Hey! How's your semester going?",
+    dialogue: `Hey! How's your semester going? I was just thinking about ${_npcId.replace(/-/g, " ")}.`,
     relationshipDelta: 5, // positive interaction
   };
 }
@@ -97,7 +84,9 @@ export function updateNpcRelationshipsOverWeek() {
  * TODO: Could eventually call LLM for dynamic dialogue, or use data-driven lookup
  */
 export function generateNpcDialogue(_npcId: string, _topic?: string): string {
-  // TODO: Return contextual dialogue
-  // For MVP: use static dialogue from data files
-  return "I'm focused on my studies this semester.";
+  if (_topic) {
+    return `${_npcId.replace(/-/g, " ")} is focused on ${_topic} this semester.`;
+  }
+
+  return `${_npcId.replace(/-/g, " ")} is focused on studies this semester.`;
 }

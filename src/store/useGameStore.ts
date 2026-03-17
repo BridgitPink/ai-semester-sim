@@ -5,9 +5,9 @@ import type { CourseCompletion, Lesson } from "../game/types/course";
 import type { ProjectState } from "../game/types/player";
 import type { InteriorObject } from "../game/types/interiorObject";
 
-type LocationId = "dorm" | "classroom" | "library" | "cafe" | "lab" | "advisor-office" | null;
+export type LocationId = "dorm" | "classroom" | "library" | "cafe" | "lab" | "advisor-office" | null;
 type PanelType = "none" | "location" | "npc" | "course" | "project" | "object";
-type SceneKey = "GameScene" | "ClassroomScene";
+type SceneKey = "GameScene" | "InteriorScene";
 
 interface PlayerPosition {
   x: number;
@@ -33,7 +33,7 @@ interface GameStore {
   
   // Scene & world state
   currentScene: SceneKey;
-  currentBuilding: LocationId; // which building is the player in (for ClassroomScene context)
+  currentBuilding: LocationId; // which building interior the player is currently in
   playerPosition: PlayerPosition | null; // saved position for returning to GameScene
   
   // Player state
@@ -181,7 +181,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // Action: scene & building transitions
   enterBuilding: (buildingId, playerPos) =>
     set({
-      currentScene: "ClassroomScene",
+      currentScene: "InteriorScene",
       currentBuilding: buildingId,
       playerPosition: playerPos,
       activePanel: "none", // close any open panels

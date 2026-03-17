@@ -3,9 +3,7 @@ import Phaser from "phaser";
 import { Hud } from "./components/overlay/Hud";
 import { Sidebar } from "./components/Sidebar";
 import { GameScene } from "./game/phaser/GameScene";
-import { ClassroomScene } from "./game/phaser/ClassroomScene";
-import { LibraryScene } from "./game/phaser/LibraryScene";
-import { DormScene } from "./game/phaser/DormScene";
+import { InteriorScene } from "./game/phaser/InteriorScene";
 import { initializeGame } from "./game/bootstrap";
 
 /**
@@ -82,7 +80,7 @@ export default function App() {
       input: {
         keyboard: true,
       },
-      scene: [GameScene, ClassroomScene, LibraryScene, DormScene],
+      scene: [GameScene, InteriorScene],
       scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
