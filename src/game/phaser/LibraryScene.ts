@@ -40,7 +40,7 @@ export class LibraryScene extends BuildingSceneBase {
     this.addDescriptionText(location.description, 90);
 
     // Footer
-    this.addFooterText("[ESC] Return to campus", 40);
+    this.addFooterText("Use [E] on an exit object to leave", 40);
 
     // TODO Phase 3+: Add library-specific UI (book catalog, research materials, etc.)
 

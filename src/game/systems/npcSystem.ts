@@ -54,8 +54,14 @@ export interface NpcInteractionOutcome {
     confidence?: number;
     focus?: number;
     energy?: number;
-    knowledge?: number;
-    projectProgress?: number;
+    charisma?: number;
+    curiosity?: number;
+    discipline?: number;
+  };
+  knowledgeDelta?: {
+    aiFoundations?: number;
+    dataPrompting?: number;
+    appliedAIBuilding?: number;
   };
 }
 
@@ -67,10 +73,6 @@ function stableHash(input: string): number {
     hash = Math.imul(hash, 16777619);
   }
   return hash >>> 0;
-}
-
-function clamp01To100(value: number): number {
-  return Math.max(0, Math.min(100, value));
 }
 
 export function getDayPhase(dayType: DayType, mandatoryActivityComplete: boolean): DayPhase {
@@ -299,38 +301,33 @@ export function performNpcInteraction(npcId: string): NpcInteractionOutcome {
   // Small stat nudge to reinforce meaning.
   const statDelta: NpcInteractionOutcome["statDelta"] =
     mood === "social"
-      ? { stress: -3, confidence: 3 }
+      ? { stress: -3, confidence: 3, charisma: 2 }
       : mood === "focused"
-        ? { focus: 2, knowledge: 2 }
+        ? { focus: 2, curiosity: 1 }
         : mood === "tired"
           ? { stress: -1, energy: -1 }
           : mood === "stressed"
-            ? { stress: -1, confidence: 1 }
+            ? { stress: -1, confidence: 1, discipline: 1 }
             : { stress: -2 };
+
+  const knowledgeDelta: NpcInteractionOutcome["knowledgeDelta"] =
+    mood === "focused"
+      ? { dataPrompting: 2 }
+      : mood === "social"
+        ? { appliedAIBuilding: 1 }
+        : undefined;
 
   // Apply effects in store.
   state.updateNpcRelationship(npcId, relationshipDelta);
 
-  if (statDelta) {
-    const current = state.stats;
-    state.updateStats({
-      stress: statDelta.stress !== undefined ? clamp01To100(current.stress + statDelta.stress) : current.stress,
-      confidence:
-        statDelta.confidence !== undefined
-          ? clamp01To100(current.confidence + statDelta.confidence)
-          : current.confidence,
-      focus: statDelta.focus !== undefined ? clamp01To100(current.focus + statDelta.focus) : current.focus,
-      energy: statDelta.energy !== undefined ? clamp01To100(current.energy + statDelta.energy) : current.energy,
-      knowledge:
-        statDelta.knowledge !== undefined ? clamp01To100(current.knowledge + statDelta.knowledge) : current.knowledge,
-      projectProgress:
-        statDelta.projectProgress !== undefined
-          ? clamp01To100(current.projectProgress + statDelta.projectProgress)
-          : current.projectProgress,
+  if (statDelta || knowledgeDelta) {
+    state.applyPlayerDeltas({
+      stats: statDelta,
+      knowledge: knowledgeDelta,
     });
   }
 
-  return { relationshipDelta, familiarityDelta, statDelta };
+  return { relationshipDelta, familiarityDelta, statDelta, knowledgeDelta };
 }
 
 export const NPC_LOCATION_ANCHORS: Record<CampusLocationId, Array<{ dx: number; dy: number }>> = {

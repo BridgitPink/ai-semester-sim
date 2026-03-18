@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useGameStore } from "../store/useGameStore";
 import { StatBar } from "./ui/StarBar";
 import { getCurrentDaySummary, canSleepNow } from "../game/systems/timeSystem";
+import { getAcademicReadiness, getSocialReadiness } from "../game/systems/playerSelectors";
 
 type TabType = "stats" | "course" | "project";
 
@@ -17,13 +18,17 @@ type TabType = "stats" | "course" | "project";
 export function Sidebar() {
   const [activeTab, setActiveTab] = useState<TabType>("stats");
   const {
+    knowledge,
     stats,
+    projectProgress,
     courseCompletions,
     projectState,
   } = useGameStore();
 
   const daySummary = getCurrentDaySummary();
   const canSleep = canSleepNow();
+  const academicReadiness = getAcademicReadiness();
+  const socialReadiness = getSocialReadiness();
 
   return (
     <div className="sidebar">
@@ -85,11 +90,26 @@ export function Sidebar() {
             <h2>Player Stats</h2>
             <div className="sidebar-stats">
               <StatBar label="Energy" value={stats.energy} />
-              <StatBar label="Focus" value={stats.focus} />
               <StatBar label="Stress" value={stats.stress} />
+              <StatBar label="Focus" value={stats.focus} />
               <StatBar label="Confidence" value={stats.confidence} />
-              <StatBar label="Knowledge" value={stats.knowledge} />
-              <StatBar label="Project" value={stats.projectProgress} />
+              <StatBar label="Charisma" value={stats.charisma} />
+              <StatBar label="Curiosity" value={stats.curiosity} />
+              <StatBar label="Discipline" value={stats.discipline} />
+            </div>
+
+            <h2>Academic Progress</h2>
+            <div className="sidebar-stats">
+              <StatBar label="AI Foundations" value={knowledge.aiFoundations} />
+              <StatBar label="Data & Prompting" value={knowledge.dataPrompting} />
+              <StatBar label="Applied AI Building" value={knowledge.appliedAIBuilding} />
+              <StatBar label="Project" value={projectProgress} />
+            </div>
+
+            <h2>Readiness</h2>
+            <div className="sidebar-stats">
+              <StatBar label="Academic" value={academicReadiness} />
+              <StatBar label="Social" value={socialReadiness} />
             </div>
           </div>
         )}

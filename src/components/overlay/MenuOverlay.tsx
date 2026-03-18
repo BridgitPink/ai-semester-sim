@@ -1,6 +1,7 @@
 import { useGameStore } from "../../store/useGameStore";
 import { StatBar } from "../ui/StarBar";
 import { PanelSection } from "../ui/PanelSection";
+import { getAcademicReadiness, getSocialReadiness } from "../../game/systems/playerSelectors";
 
 export function MenuOverlay() {
   const {
@@ -9,10 +10,15 @@ export function MenuOverlay() {
     week,
     day,
     currentSemester,
+    knowledge,
     stats,
+    projectProgress,
     courseCompletions,
     projectState,
   } = useGameStore();
+
+  const academicReadiness = getAcademicReadiness();
+  const socialReadiness = getSocialReadiness();
 
   if (!menuOpen) return null;
 
@@ -45,11 +51,23 @@ export function MenuOverlay() {
             <PanelSection title="Player Stats">
               <div className="stats-grid">
                 <StatBar label="Energy" value={stats.energy} />
-                <StatBar label="Focus" value={stats.focus} />
                 <StatBar label="Stress" value={stats.stress} />
+                <StatBar label="Focus" value={stats.focus} />
                 <StatBar label="Confidence" value={stats.confidence} />
-                <StatBar label="Knowledge" value={stats.knowledge} />
-                <StatBar label="Project Progress" value={stats.projectProgress} />
+                <StatBar label="Charisma" value={stats.charisma} />
+                <StatBar label="Curiosity" value={stats.curiosity} />
+                <StatBar label="Discipline" value={stats.discipline} />
+              </div>
+            </PanelSection>
+
+            <PanelSection title="Academic Progress">
+              <div className="stats-grid">
+                <StatBar label="AI Foundations" value={knowledge.aiFoundations} />
+                <StatBar label="Data & Prompting" value={knowledge.dataPrompting} />
+                <StatBar label="Applied AI Building" value={knowledge.appliedAIBuilding} />
+                <StatBar label="Project Progress" value={projectProgress} />
+                <StatBar label="Academic Readiness" value={academicReadiness} />
+                <StatBar label="Social Readiness" value={socialReadiness} />
               </div>
             </PanelSection>
 
@@ -89,13 +107,13 @@ export function MenuOverlay() {
                 <div className="project-progress-header">
                   <span>Overall Progress</span>
                   <span className="project-progress-value">
-                    {stats.projectProgress}%
+                    {projectProgress}%
                   </span>
                 </div>
                 <div className="project-progress-bar">
                   <div
                     className="project-progress-fill"
-                    style={{ width: `${stats.projectProgress}%` }}
+                    style={{ width: `${projectProgress}%` }}
                   />
                 </div>
               </div>

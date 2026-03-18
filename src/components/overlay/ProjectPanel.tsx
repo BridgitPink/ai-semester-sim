@@ -5,7 +5,7 @@ import { StatBar } from "../ui/StarBar";
 export function ProjectPanel() {
   const {
     closePanel,
-    stats,
+    projectProgress,
     projectState,
     setProjectState,
   } = useGameStore();
@@ -57,7 +57,7 @@ export function ProjectPanel() {
         <div className="project-panel-progress">
           <StatBar
             label="Project Progress"
-            value={stats.projectProgress}
+            value={projectProgress}
             showValue={true}
           />
         </div>

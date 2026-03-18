@@ -12,50 +12,72 @@
  * - skip: No effect, just pass time
  */
 
-import type { PlayerStats } from "../types/player";
+import type { PlayerDeltaPayload } from "./playerStatSystem";
 
 export type FreeActionType = "rest" | "social" | "project" | "study" | "skip";
 
 /**
  * Define effects for each free action type
- * Returns partial stat changes to apply
+ * Returns structured player deltas to apply
  */
-export const FREE_ACTION_EFFECTS: Record<FreeActionType, () => Partial<PlayerStats>> = {
+export const FREE_ACTION_EFFECTS: Record<FreeActionType, () => PlayerDeltaPayload> = {
   rest: () => ({
-    energy: 15, // Recover some energy
-    stress: -8, // Reduce stress
-    focus: 5, // Small focus boost after rest
+    stats: {
+      energy: 16, // Recover some energy
+      stress: -10, // Reduce stress
+    },
   }),
   
   social: () => ({
-    stress: -5, // Quick stress relief
-    confidence: 10, // Boost confidence through social interaction
-    energy: -5, // Slight energy cost from socializing
+    stats: {
+      stress: -6, // Quick stress relief
+      confidence: 7, // Boost confidence through social interaction
+      charisma: 6,
+    },
   }),
   
   project: () => ({
-    projectProgress: 8, // Advance final project
-    focus: -5, // Using focus reduces it slightly
-    knowledge: 3, // Some incidental learning
+    knowledge: {
+      appliedAIBuilding: 7,
+    },
+    stats: {
+      confidence: 4,
+      energy: -8,
+      focus: 2,
+      discipline: 1,
+    },
+    projectProgress: 10, // Advance final project
   }),
   
   study: () => ({
-    knowledge: 12, // Gain knowledge
-    focus: -8, // Study uses focus
-    stress: 3, // Studying can slightly increase stress
+    knowledge: {
+      aiFoundations: 3,
+      dataPrompting: 3,
+      appliedAIBuilding: 2,
+    },
+    stats: {
+      focus: 4,
+      energy: -10,
+      stress: 4,
+      discipline: 2,
+    },
   }),
   
   skip: () => ({
-    // No effect - just pass time
+    stats: {
+      confidence: -5,
+      stress: 6,
+      discipline: -2,
+    },
   }),
 };
 
 /**
  * Get effects for a specific action type
  * @param actionType - Type of free action
- * @returns Partial stat changes object
+ * @returns Structured player delta payload
  */
-export function getActionEffects(actionType: FreeActionType): Partial<PlayerStats> {
+export function getActionEffects(actionType: FreeActionType): PlayerDeltaPayload {
   const effectFn = FREE_ACTION_EFFECTS[actionType];
   if (!effectFn) {
     console.warn(`Unknown action type: ${actionType}`);

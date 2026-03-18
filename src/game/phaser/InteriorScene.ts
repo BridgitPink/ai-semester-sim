@@ -47,7 +47,7 @@ export class InteriorScene extends BuildingSceneBase {
     }
 
     this.addTitleText(location.name, 40);
-    this.addFooterText("[ESC] Return to campus", 40);
+    this.addFooterText("Use [E] on an exit object to leave", 40);
 
     // Filter objects based on building rules (e.g., classroom availability)
     this.interiorObjects = this.filterObjectsByAvailability(buildingId, interiorConfig.objects);

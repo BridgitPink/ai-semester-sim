@@ -17,7 +17,7 @@ import { createPlayer, type PlayerObject, PLAYER_DEFAULTS } from "./player";
  * - Automatic inner/outer layout rendering
  * - Player rendering and movement with bounds clamping
  * - Consistent styling across all building interiors
- * - Event handling (ESC to exit)
+ * - Event handling (E to interact)
  * - Subclasses only implement createInterior() for unique content
  *
  * Architecture:
@@ -69,7 +69,7 @@ export abstract class BuildingSceneBase extends Phaser.Scene {
     // Draw scene-specific content (to be implemented by subclasses)
     this.createInterior();
 
-    // Setup input handlers (ESC to exit, etc.)
+    // Setup input handlers (E to interact, etc.)
     this.setupInputHandlers();
 
     this.events.emit("building-scene-created", { sceneKey: this.scene.key });
@@ -254,13 +254,9 @@ export abstract class BuildingSceneBase extends Phaser.Scene {
   protected abstract createInterior(): void;
 
   /**
-   * Setup input handlers (ESC to exit, E for object interaction)
+   * Setup input handlers (E for object interaction)
    */
   protected setupInputHandlers() {
-    this.input.keyboard?.on("keydown-ESC", () => {
-      this.exitBuilding();
-    });
-
     this.input.keyboard?.on("keydown-E", () => {
       this.checkAndHandleObjectInteraction();
     });

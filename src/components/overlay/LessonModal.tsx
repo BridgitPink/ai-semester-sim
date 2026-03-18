@@ -1,6 +1,7 @@
 import { useGameStore } from "../../store/useGameStore";
 import { findCourseForLesson, onCourseCompleted } from "../../game/systems/semesterSystem";
 import { getRequiredLessonForToday } from "../../game/systems/academicScheduleSystem";
+import { getKnowledgeBranchForCourse, toKnowledgeDelta } from "../../game/systems/playerStatSystem";
 import { LessonContentRenderer } from "../lessons/LessonContentRenderer";
 
 /**
@@ -16,7 +17,7 @@ export function LessonModal() {
     completedLessons,
     courseCompletions,
     addCompletedLesson,
-    updateStats,
+    applyPlayerDeltas,
     completeMandatoryActivity,
   } = useGameStore();
 
@@ -53,13 +54,17 @@ export function LessonModal() {
       completeMandatoryActivity(lesson.id);
     }
     
-    // Apply rewards
-    updateStats({
-      knowledge: Math.min(100, completedLessons.length * 15 + lesson.completionReward.knowledge),
-      confidence: Math.min(100, completedLessons.length * 10 + lesson.completionReward.confidence),
-      focus: lesson.completionReward.focus
-        ? Math.min(100, Math.max(0, 80 - completedLessons.length * 5 + lesson.completionReward.focus))
-        : Math.max(0, 80 - completedLessons.length * 5),
+    const knowledgeBranch = getKnowledgeBranchForCourse(course.id);
+
+    // Apply lesson rewards + stamina pressure as deltas through centralized store actions.
+    applyPlayerDeltas({
+      knowledge: toKnowledgeDelta(knowledgeBranch, lesson.completionReward.knowledge),
+      stats: {
+        confidence: lesson.completionReward.confidence,
+        focus: lesson.completionReward.focus ?? 2,
+        energy: -8,
+        stress: 5,
+      },
     });
 
     // Check if course is now complete after this lesson

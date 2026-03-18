@@ -1,9 +1,22 @@
 import { create } from "zustand";
-import type { PlayerStats } from "../game/types/player";
+import type {
+  PlayerKnowledge,
+  PlayerKnowledgeDelta,
+  PlayerStatDelta,
+  PlayerStats,
+  ProjectState,
+} from "../game/types/player";
 import type { Semester } from "../game/types/semester";
 import type { CourseCompletion, Lesson } from "../game/types/course";
-import type { ProjectState } from "../game/types/player";
 import type { InteriorObject, ObjectInteractionType } from "../game/types/interiorObject";
+import {
+  applyPlayerKnowledgeDelta,
+  applyPlayerStatDelta,
+  clampPlayerValue,
+  DEFAULT_PLAYER_KNOWLEDGE,
+  DEFAULT_PLAYER_STATS,
+  type PlayerDeltaPayload,
+} from "../game/systems/playerStatSystem";
 
 export type LocationId =
   | "dorm"
@@ -72,7 +85,9 @@ interface GameStore {
   playerPosition: PlayerPosition | null; // saved position for returning to GameScene
   
   // Player state
+  knowledge: PlayerKnowledge;
   stats: PlayerStats;
+  projectProgress: number;
   
   // Course & learning progress
   courseCompletions: CourseCompletion[];
@@ -111,10 +126,13 @@ interface GameStore {
   confirmSleep: (energyRecovery: number) => void;
   cancelSleepConfirmation: () => void;
   advanceToNextDay: () => void;
-  useFreeAction: (actionType: FreeActionType, effects: Partial<PlayerStats>) => void;
+  useFreeAction: (actionType: FreeActionType, effects: PlayerDeltaPayload) => void;
   
   addCompletedLesson: (lessonId: string, courseId: string) => void;
-  updateStats: (updates: Partial<PlayerStats>) => void;
+  applyPlayerStatDelta: (delta: PlayerStatDelta) => void;
+  applyPlayerKnowledgeDelta: (delta: PlayerKnowledgeDelta) => void;
+  applyPlayerDeltas: (payload: PlayerDeltaPayload) => void;
+  setProjectProgress: (value: number) => void;
   unlockProjectFeature: (featureId: string) => void;
   setProjectState: (state: Partial<ProjectState>) => void;
   updateNpcRelationship: (npcId: string, delta: number) => void;
@@ -152,14 +170,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   playerPosition: null,
   
   // Player stats
-  stats: {
-    energy: 100,
-    focus: 80,
-    stress: 15,
-    confidence: 50,
-    knowledge: 0,
-    projectProgress: 0,
-  },
+  knowledge: DEFAULT_PLAYER_KNOWLEDGE,
+  stats: DEFAULT_PLAYER_STATS,
+  projectProgress: 0,
   
   // Course & learning state
   courseCompletions: [],
@@ -287,11 +300,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
 
     // Consequences (kept simple and clearly negative)
-    state.updateStats({
-      stress: Math.min(100, state.stats.stress + 12),
-      confidence: Math.max(0, state.stats.confidence - 10),
-      knowledge: Math.max(0, state.stats.knowledge - 5),
-      focus: Math.max(0, state.stats.focus - 10),
+    state.applyPlayerDeltas({
+      stats: {
+        stress: 12,
+        confidence: -10,
+        discipline: -3,
+      },
+      knowledge: {
+        aiFoundations: -2,
+      },
     });
   },
 
@@ -304,10 +321,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     state.completeMandatoryActivity("lab-build-study-helper");
 
     // Small, positive reward
-    state.updateStats({
-      knowledge: Math.min(100, state.stats.knowledge + 10),
-      projectProgress: Math.min(100, state.stats.projectProgress + 8),
-      focus: Math.max(0, Math.min(100, state.stats.focus - 5)),
+    state.applyPlayerDeltas({
+      knowledge: {
+        appliedAIBuilding: 10,
+      },
+      stats: {
+        focus: -5,
+        confidence: 2,
+      },
+      projectProgress: 8,
     });
   },
   
@@ -324,16 +346,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // Confirm sleep: apply energy recovery, advance day, reset daily state
   confirmSleep: (energyRecovery) => {
     const state = get();
-    
-    // Apply energy recovery
-    const newEnergy = Math.min(100, state.stats.energy + energyRecovery);
-    
+
     // Advance to next day
     state.advanceToNextDay();
-    
+
     // Update energy and close modal
     set({ sleepConfirmationOpen: false, activePanel: "none" });
-    state.updateStats({ energy: newEnergy });
+    state.applyPlayerStatDelta({ energy: energyRecovery });
   },
   
   // Advance to next day: increment day, or week+day if week ends
@@ -387,8 +406,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
     
-    // Apply effects to stats
-    state.updateStats(effects);
+    // Apply effects to player profile
+    state.applyPlayerDeltas(effects);
     
     // Decrement free actions
     set({ freeActionsRemaining: state.freeActionsRemaining - 1 });
@@ -433,14 +452,37 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
   
-  // Action: stats
-  updateStats: (updates) => {
+  applyPlayerStatDelta: (delta) => {
     const state = get();
     set({
-      stats: {
-        ...state.stats,
-        ...updates,
-      },
+      stats: applyPlayerStatDelta(state.stats, delta),
+    });
+  },
+
+  applyPlayerKnowledgeDelta: (delta) => {
+    const state = get();
+    set({
+      knowledge: applyPlayerKnowledgeDelta(state.knowledge, delta),
+    });
+  },
+
+  applyPlayerDeltas: (payload) => {
+    const state = get();
+    set({
+      stats: payload.stats ? applyPlayerStatDelta(state.stats, payload.stats) : state.stats,
+      knowledge: payload.knowledge
+        ? applyPlayerKnowledgeDelta(state.knowledge, payload.knowledge)
+        : state.knowledge,
+      projectProgress:
+        payload.projectProgress !== undefined
+          ? clampPlayerValue(state.projectProgress + payload.projectProgress)
+          : state.projectProgress,
+    });
+  },
+
+  setProjectProgress: (value) => {
+    set({
+      projectProgress: clampPlayerValue(value),
     });
   },
   
@@ -508,6 +550,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       freeActionsRemaining: 3,
       completedMandatoryActivityId: null,
       labActivityStatus: "not-started",
+      knowledge: DEFAULT_PLAYER_KNOWLEDGE,
+      stats: DEFAULT_PLAYER_STATS,
+      projectProgress: 0,
     });
   },
 }));

@@ -2,19 +2,47 @@
  * Player and project-related types
  */
 
+export interface PlayerKnowledge {
+  aiFoundations: number;
+  dataPrompting: number;
+  appliedAIBuilding: number;
+}
+
 export interface PlayerStats {
   energy: number;
-  focus: number;
   stress: number;
+  focus: number;
   confidence: number;
-  knowledge: number;
-  projectProgress: number;
+  charisma: number;
+  curiosity: number;
+  discipline: number;
+}
+
+export interface PlayerProfile {
+  knowledge: PlayerKnowledge;
+  stats: PlayerStats;
+}
+
+export interface PlayerKnowledgeDelta {
+  aiFoundations?: number;
+  dataPrompting?: number;
+  appliedAIBuilding?: number;
+}
+
+export interface PlayerStatDelta {
+  energy?: number;
+  stress?: number;
+  focus?: number;
+  confidence?: number;
+  charisma?: number;
+  curiosity?: number;
+  discipline?: number;
 }
 
 export interface Player {
   id: string;
   name: string;
-  stats: PlayerStats;
+  profile: PlayerProfile;
 }
 
 /**
