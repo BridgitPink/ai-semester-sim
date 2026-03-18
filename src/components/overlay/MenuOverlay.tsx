@@ -16,7 +16,6 @@ export function MenuOverlay() {
     week,
     day,
     currentSemester,
-    projectProgress,
     courseCompletions,
     projectState,
   } = useGameStore();
@@ -116,16 +115,38 @@ export function MenuOverlay() {
                 <div className="project-progress-header">
                   <span>Overall Progress</span>
                   <span className="project-progress-value">
-                    {projectProgress}%
+                    {projectState.progress.overall}%
                   </span>
                 </div>
                 <div className="project-progress-bar">
                   <div
                     className="project-progress-fill"
-                    style={{ width: `${projectProgress}%` }}
+                    style={{ width: `${projectState.progress.overall}%` }}
                   />
                 </div>
               </div>
+
+              <div className="stats-grid" style={{ marginTop: 12 }}>
+                <StatBar label="Prompting" value={projectState.progress.prompting} />
+                <StatBar label="Retrieval" value={projectState.progress.retrieval} />
+                <StatBar label="Knowledge Base" value={projectState.progress.knowledgeBase} />
+                <StatBar label="Evaluation" value={projectState.progress.evaluation} />
+                <StatBar label="Interface" value={projectState.progress.interface} />
+              </div>
+
+              {projectState.milestones.length > 0 && (
+                <div className="project-features" style={{ marginTop: 12 }}>
+                  <h4>Milestones</h4>
+                  <ul className="feature-list">
+                    {projectState.milestones.map((milestone) => (
+                      <li key={milestone.id}>
+                        <span className="feature-icon">{milestone.isCompleted ? "✓" : "•"}</span>
+                        {milestone.name}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {projectState.unlockedFeatures.length > 0 && (
                 <div className="project-features">

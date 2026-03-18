@@ -1,7 +1,12 @@
 import { create } from "zustand";
 import type {
+  ProjectCapabilitiesState,
+  ProjectCapabilityKey,
   PlayerKnowledge,
   PlayerKnowledgeDelta,
+  ProjectMilestoneState,
+  ProjectProgressCategoryKey,
+  ProjectProgressState,
   PlayerStatDelta,
   PlayerStats,
   ProjectState,
@@ -40,6 +45,150 @@ import {
   hasStatDelta,
 } from "../game/systems/itemUseSystem";
 import { getItemEffects } from "../game/data/items/catalog";
+import { canUseWorkbench } from "../game/systems/playerSelectors";
+import {
+  getActiveLabProjectCategory,
+  getWorkbenchProgressGain,
+} from "../game/systems/projectSystem";
+
+const PROJECT_PROGRESS_KEYS: ProjectProgressCategoryKey[] = [
+  "prompting",
+  "retrieval",
+  "knowledgeBase",
+  "evaluation",
+  "interface",
+];
+
+function createDefaultProjectProgress(): ProjectProgressState {
+  return {
+    overall: 0,
+    prompting: 0,
+    retrieval: 0,
+    knowledgeBase: 0,
+    evaluation: 0,
+    interface: 0,
+  };
+}
+
+function createDefaultProjectCapabilities(): ProjectCapabilitiesState {
+  return {
+    hasPromptTemplates: false,
+    hasKnowledgeSource: false,
+    hasRetrievalLayer: false,
+    hasEmbeddings: false,
+    hasVectorDb: false,
+    hasDocumentUpload: false,
+    hasDashboard: false,
+    hasEvaluationMetrics: false,
+  };
+}
+
+function computeProjectOverallProgress(
+  progress: ProjectProgressState,
+  semester: Semester | null
+): number {
+  const categories = semester?.finalProjectTemplate.progressCategories;
+  if (!categories || categories.length === 0) {
+    const total = PROJECT_PROGRESS_KEYS.reduce((sum, key) => sum + progress[key], 0);
+    return Math.round(total / PROJECT_PROGRESS_KEYS.length);
+  }
+
+  const totalWeight = categories.reduce((sum, item) => sum + Math.max(0, item.weight), 0);
+  if (totalWeight <= 0) {
+    const total = PROJECT_PROGRESS_KEYS.reduce((sum, key) => sum + progress[key], 0);
+    return Math.round(total / PROJECT_PROGRESS_KEYS.length);
+  }
+
+  const weightedTotal = categories.reduce((sum, item) => {
+    const safeWeight = Math.max(0, item.weight);
+    return sum + progress[item.id] * safeWeight;
+  }, 0);
+  return Math.round(weightedTotal / totalWeight);
+}
+
+function computeProjectMilestones(
+  semester: Semester | null,
+  progress: ProjectProgressState,
+  capabilities: ProjectCapabilitiesState,
+  previousMilestones: ProjectMilestoneState[]
+): ProjectMilestoneState[] {
+  const templateMilestones = semester?.finalProjectTemplate.milestones ?? [];
+  return templateMilestones.map((milestone) => {
+    const hasOverall =
+      milestone.requiredOverallProgress === undefined ||
+      progress.overall >= milestone.requiredOverallProgress;
+    const hasCapabilities =
+      !milestone.requiredCapabilities ||
+      milestone.requiredCapabilities.every((key) => capabilities[key]);
+    const existing = previousMilestones.find((item) => item.id === milestone.id);
+    return {
+      id: milestone.id,
+      name: milestone.name,
+      description: milestone.description,
+      requiredOverallProgress: milestone.requiredOverallProgress,
+      requiredCapabilities: milestone.requiredCapabilities,
+      isCompleted: (existing?.isCompleted ?? false) || (hasOverall && hasCapabilities),
+    };
+  });
+}
+
+function computeRuleDrivenCapabilities(
+  semester: Semester | null,
+  progress: ProjectProgressState,
+  milestones: ProjectMilestoneState[]
+): Partial<ProjectCapabilitiesState> {
+  const rules = semester?.finalProjectTemplate.capabilityRules ?? [];
+  if (rules.length === 0) {
+    return {};
+  }
+
+  const completedMilestoneIds = new Set(
+    milestones.filter((item) => item.isCompleted).map((item) => item.id)
+  );
+
+  const enabledByRules: Partial<ProjectCapabilitiesState> = {};
+  rules.forEach((rule) => {
+    const meetsCategoryMinimums =
+      !rule.requiredCategoryMinimums ||
+      Object.entries(rule.requiredCategoryMinimums).every(([key, min]) => {
+        const categoryKey = key as ProjectProgressCategoryKey;
+        return progress[categoryKey] >= (min ?? 0);
+      });
+    const meetsOverall =
+      rule.requiredOverallProgress === undefined ||
+      progress.overall >= rule.requiredOverallProgress;
+    const meetsMilestones =
+      !rule.requiredMilestoneIds ||
+      rule.requiredMilestoneIds.every((id) => completedMilestoneIds.has(id));
+
+    enabledByRules[rule.capability] = meetsCategoryMinimums && meetsOverall && meetsMilestones;
+  });
+
+  return enabledByRules;
+}
+
+function createProjectStateFromSemester(semester: Semester | null): ProjectState {
+  const milestones = semester?.finalProjectTemplate.milestones ?? [];
+  return {
+    id: semester?.finalProjectTemplate.id ?? "ai-study-helper",
+    name: semester?.finalProjectTemplate.name ?? "AI Study Helper",
+    description:
+      semester?.finalProjectTemplate.description ??
+      "Build an AI study helper project across the semester.",
+    progress: createDefaultProjectProgress(),
+    capabilities: createDefaultProjectCapabilities(),
+    milestones: milestones.map((milestone) => ({
+      id: milestone.id,
+      name: milestone.name,
+      description: milestone.description,
+      requiredOverallProgress: milestone.requiredOverallProgress,
+      requiredCapabilities: milestone.requiredCapabilities,
+      isCompleted: false,
+    })),
+    unlockedFeatures: [],
+    selectedFeatures: [],
+  };
+}
 
 export type LocationId =
   | "dorm"
@@ -61,11 +210,27 @@ export interface RelationshipState {
   familiarity: number; // 0-100
 }
 
+interface WorkbenchSubmissionResult {
+  success: boolean;
+  message: string;
+  responseText?: string;
+  category?: ProjectProgressCategoryKey;
+  progressGain?: number;
+}
+
+interface WorkbenchSubmissionState {
+  message: string | null;
+  responseText: string | null;
+  category: ProjectProgressCategoryKey | null;
+  progressGain: number;
+}
+
 type ObjectModalVariant =
   | "placeholder"
   | "info"
   | "extra-credit"
   | "lab"
+  | "project-workbench"
   | "direct-purchase"
   | "shelf-browse"
   | "checkout";
@@ -130,6 +295,9 @@ interface GameStore {
   // Relationships & projects
   npcRelationshipState: Record<string, RelationshipState>; // npcId -> relationship state
   projectState: ProjectState;
+  workbenchSubmission: WorkbenchSubmissionState;
+  lessonWorkbenchBoostMultiplier: number;
+  lessonWorkbenchBoostUsesRemaining: number;
   
   // Actions
   setLocation: (location: LocationId) => void;
@@ -164,6 +332,9 @@ interface GameStore {
   useFreeAction: (actionType: FreeActionType, effects: PlayerDeltaPayload) => void;
   
   addCompletedLesson: (lessonId: string, courseId: string) => void;
+  applyLessonWorkbenchHooks: (lessonId: string) => void;
+  clearWorkbenchSubmissionFeedback: () => void;
+  submitProjectWorkbenchInput: (inputText: string) => WorkbenchSubmissionResult;
   canAfford: (amount: number) => boolean;
   getBasketTotal: () => number;
   addItemToInventory: (itemId: string, quantity?: number) => EconomyActionResult;
@@ -182,6 +353,13 @@ interface GameStore {
   applyPlayerStatDelta: (delta: PlayerStatDelta) => void;
   applyPlayerKnowledgeDelta: (delta: PlayerKnowledgeDelta) => void;
   applyPlayerDeltas: (payload: PlayerDeltaPayload) => void;
+  applyProjectProgressDelta: (
+    delta: Partial<Record<ProjectProgressCategoryKey, number>>,
+    capabilityUnlocks?: ProjectCapabilityKey[]
+  ) => void;
+  setProjectCapability: (capability: ProjectCapabilityKey, enabled: boolean) => void;
+  recomputeProjectState: () => void;
+  markCourseMilestoneUnlocked: (courseId: string) => void;
   setProjectProgress: (value: number) => void;
   unlockProjectFeature: (featureId: string) => void;
   setProjectState: (state: Partial<ProjectState>) => void;
@@ -234,10 +412,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
   
   // Relationship & project state
   npcRelationshipState: {},
-  projectState: {
-    unlockedFeatures: [],
-    selectedFeatures: [],
+  projectState: createProjectStateFromSemester(null),
+  workbenchSubmission: {
+    message: null,
+    responseText: null,
+    category: null,
+    progressGain: 0,
   },
+  lessonWorkbenchBoostMultiplier: 1,
+  lessonWorkbenchBoostUsesRemaining: 0,
   
   // Action: movement & location
   setLocation: (location) => set({ currentLocation: location }),
@@ -290,12 +473,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
       activePanel: "object",
       objectModal: ctx,
       sleepConfirmationOpen: false,
+      workbenchSubmission: {
+        message: null,
+        responseText: null,
+        category: null,
+        progressGain: 0,
+      },
     }),
 
   clearObjectModal: () =>
     set({
       objectModal: null,
       activePanel: "none",
+      workbenchSubmission: {
+        message: null,
+        responseText: null,
+        category: null,
+        progressGain: 0,
+      },
     }),
   
   // Action: lesson modal
@@ -376,8 +571,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // Complete today's lab activity (Thu)
   completeLabActivityForToday: () => {
     const state = get();
+    const lessonBoostUses = state.currentSemester?.finalProjectTemplate.workbenchConfig.lessonBoostUses ?? 1;
     set({
       labActivityStatus: "complete",
+      lessonWorkbenchBoostMultiplier: 1.1,
+      lessonWorkbenchBoostUsesRemaining: Math.max(1, lessonBoostUses),
     });
     state.completeMandatoryActivity("lab-build-study-helper");
 
@@ -454,6 +652,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       freeActionsRemaining: 3,
       completedMandatoryActivityId: null,
       labActivityStatus: "not-started",
+      lessonWorkbenchBoostMultiplier: 1,
+      lessonWorkbenchBoostUsesRemaining: 0,
     });
     
     console.log(`✓ Advanced to Week ${newWeek} Day ${newDay} (${newDayType})`);
@@ -471,6 +671,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     
     // Apply effects to player profile
     state.applyPlayerDeltas(effects);
+
+    const freeActionRule = state.currentSemester?.finalProjectTemplate.freeActionProgressRules.find(
+      (rule) => rule.actionType === actionType
+    );
+    if (freeActionRule) {
+      state.applyProjectProgressDelta(freeActionRule.progressDelta);
+    }
     
     // Decrement free actions
     set({ freeActionsRemaining: state.freeActionsRemaining - 1 });
@@ -513,6 +720,108 @@ export const useGameStore = create<GameStore>((set, get) => ({
       
       set({ completedLessons: newCompletedLessons, courseCompletions: newCompletions });
     }
+  },
+
+  applyLessonWorkbenchHooks: (lessonId) => {
+    const state = get();
+    const template = state.currentSemester?.finalProjectTemplate;
+    const lesson = state.currentSemester?.courses
+      .flatMap((course) => course.lessons)
+      .find((item) => item.id === lessonId);
+
+    if (!lesson?.workbenchHooks) return;
+
+    const hookMultiplier = Math.max(1, lesson.workbenchHooks.progressMultiplier ?? 1);
+    if (hookMultiplier <= 1) return;
+
+    set({
+      lessonWorkbenchBoostMultiplier: hookMultiplier,
+      lessonWorkbenchBoostUsesRemaining: template?.workbenchConfig.lessonBoostUses ?? 1,
+    });
+  },
+
+  clearWorkbenchSubmissionFeedback: () => {
+    set({
+      workbenchSubmission: {
+        message: null,
+        responseText: null,
+        category: null,
+        progressGain: 0,
+      },
+    });
+  },
+
+  submitProjectWorkbenchInput: (inputText) => {
+    const state = get();
+    const trimmedInput = inputText.trim();
+    const template = state.currentSemester?.finalProjectTemplate;
+    const placeholderResponse = template?.workbenchConfig.placeholderResponse ?? "ok..";
+
+    if (!trimmedInput) {
+      const result: WorkbenchSubmissionResult = {
+        success: false,
+        message: "Enter project work before submitting.",
+      };
+      set({
+        workbenchSubmission: {
+          message: result.message,
+          responseText: null,
+          category: null,
+          progressGain: 0,
+        },
+      });
+      return result;
+    }
+
+    const eligibility = canUseWorkbench();
+    if (!eligibility.canUse) {
+      const result: WorkbenchSubmissionResult = {
+        success: false,
+        message: eligibility.reason ?? "Workbench is unavailable right now.",
+      };
+      set({
+        workbenchSubmission: {
+          message: result.message,
+          responseText: null,
+          category: null,
+          progressGain: 0,
+        },
+      });
+      return result;
+    }
+
+    const activeCategory = getActiveLabProjectCategory();
+    const gain = getWorkbenchProgressGain(
+      template?.workbenchConfig.baseProgressGain,
+      state.lessonWorkbenchBoostUsesRemaining > 0 ? state.lessonWorkbenchBoostMultiplier : 1
+    );
+
+    state.applyProjectProgressDelta({
+      [activeCategory]: gain,
+    });
+
+    const nextBoostUses = Math.max(0, state.lessonWorkbenchBoostUsesRemaining - 1);
+    const message = `Applied +${gain} to ${activeCategory}.`;
+
+    set({
+      freeActionsRemaining: state.freeActionsRemaining - 1,
+      lessonWorkbenchBoostUsesRemaining: nextBoostUses,
+      lessonWorkbenchBoostMultiplier: nextBoostUses > 0 ? state.lessonWorkbenchBoostMultiplier : 1,
+      workbenchSubmission: {
+        message,
+        responseText: placeholderResponse,
+        category: activeCategory,
+        progressGain: gain,
+      },
+    });
+
+    return {
+      success: true,
+      message,
+      responseText: placeholderResponse,
+      category: activeCategory,
+      progressGain: gain,
+    };
   },
 
   canAfford: (amount) => {
@@ -698,9 +1007,123 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 
-  setProjectProgress: (value) => {
+  applyProjectProgressDelta: (delta, capabilityUnlocks) => {
+    const state = get();
+    const current = state.projectState;
+    const nextProgress: ProjectProgressState = {
+      ...current.progress,
+      prompting: clampPlayerValue(current.progress.prompting + (delta.prompting ?? 0)),
+      retrieval: clampPlayerValue(current.progress.retrieval + (delta.retrieval ?? 0)),
+      knowledgeBase: clampPlayerValue(
+        current.progress.knowledgeBase + (delta.knowledgeBase ?? 0)
+      ),
+      evaluation: clampPlayerValue(current.progress.evaluation + (delta.evaluation ?? 0)),
+      interface: clampPlayerValue(current.progress.interface + (delta.interface ?? 0)),
+      overall: current.progress.overall,
+    };
+
+    const nextCapabilities: ProjectCapabilitiesState = {
+      ...current.capabilities,
+    };
+    (capabilityUnlocks ?? []).forEach((capability) => {
+      nextCapabilities[capability] = true;
+    });
+
     set({
-      projectProgress: clampPlayerValue(value),
+      projectState: {
+        ...current,
+        progress: nextProgress,
+        capabilities: nextCapabilities,
+      },
+    });
+
+    get().recomputeProjectState();
+  },
+
+  setProjectCapability: (capability, enabled) => {
+    const state = get();
+    if (state.projectState.capabilities[capability] === enabled) {
+      return;
+    }
+
+    set({
+      projectState: {
+        ...state.projectState,
+        capabilities: {
+          ...state.projectState.capabilities,
+          [capability]: enabled,
+        },
+      },
+    });
+
+    get().recomputeProjectState();
+  },
+
+  recomputeProjectState: () => {
+    const state = get();
+    const overall = computeProjectOverallProgress(state.projectState.progress, state.currentSemester);
+    const progress: ProjectProgressState = {
+      ...state.projectState.progress,
+      overall,
+    };
+
+    const interimMilestones = computeProjectMilestones(
+      state.currentSemester,
+      progress,
+      state.projectState.capabilities,
+      state.projectState.milestones
+    );
+
+    const ruleDriven = computeRuleDrivenCapabilities(state.currentSemester, progress, interimMilestones);
+    const capabilities: ProjectCapabilitiesState = {
+      ...createDefaultProjectCapabilities(),
+      ...state.projectState.capabilities,
+      ...ruleDriven,
+    };
+
+    const milestones = computeProjectMilestones(
+      state.currentSemester,
+      progress,
+      capabilities,
+      state.projectState.milestones
+    );
+
+    set({
+      projectState: {
+        ...state.projectState,
+        progress,
+        capabilities,
+        milestones,
+      },
+      projectProgress: progress.overall,
+    });
+  },
+
+  markCourseMilestoneUnlocked: (courseId) => {
+    const state = get();
+    const updated = state.courseCompletions.map((completion) =>
+      completion.courseId === courseId
+        ? {
+            ...completion,
+            milestoneUnlocked: true,
+          }
+        : completion
+    );
+    set({ courseCompletions: updated });
+  },
+
+  setProjectProgress: (value) => {
+    const state = get();
+    const clamped = clampPlayerValue(value);
+    set({
+      projectProgress: clamped,
+      projectState: {
+        ...state.projectState,
+        progress: {
+          ...state.projectState.progress,
+          overall: clamped,
+        },
+      },
     });
   },
   
@@ -775,6 +1198,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
       inventory: [],
       storeBasket: [],
       lastWeeklyPayWeek: null,
+      projectState: createProjectStateFromSemester(semester),
+      workbenchSubmission: {
+        message: null,
+        responseText: null,
+        category: null,
+        progressGain: 0,
+      },
+      lessonWorkbenchBoostMultiplier: 1,
+      lessonWorkbenchBoostUsesRemaining: 0,
     });
   },
 }));

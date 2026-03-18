@@ -325,6 +325,20 @@ export function handleObjectInteraction(object: InteriorObject): void {
       break;
     }
 
+    case "project-workbench": {
+      store.openObjectModal({
+        variant: "project-workbench",
+        interactionType: object.interactionType,
+        object,
+        title: object.label || "Project Workbench",
+        subtitle: "Applied project work",
+        body:
+          object.metadata?.description ??
+          "Apply what you learned in lab. Submit project work to gain progress.",
+      });
+      break;
+    }
+
     case "leave-classroom": {
       // Exit building
       console.log("✓ Exiting classroom...");

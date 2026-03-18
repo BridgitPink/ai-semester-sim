@@ -14,6 +14,11 @@ export type LessonInteractionType = "read" | "interactive" | "reflection";
 
 export type LessonContentBlockType = "text" | "video" | "example" | "tip";
 
+import type {
+  ProjectCapabilityKey,
+  ProjectProgressCategoryKey,
+} from "./player";
+
 export interface TextBlock {
   type: "text";
   text: string;
@@ -74,6 +79,15 @@ export interface Lesson {
     confidence: number;
     focus?: number;
   };
+  projectImpact?: {
+    progressDelta?: Partial<Record<ProjectProgressCategoryKey, number>>;
+    capabilityUnlocks?: ProjectCapabilityKey[];
+  };
+  workbenchHooks?: {
+    projectCategory?: ProjectProgressCategoryKey;
+    progressMultiplier?: number;
+    unlockWorkbench?: boolean;
+  };
   unlocks?: string[]; // IDs of features or lessons unlocked after completion
 }
 
@@ -88,6 +102,8 @@ export interface Course {
   lessons: Lesson[];
   milestoneReward: {
     projectFeatures: string[]; // feature IDs unlocked upon course completion
+    progressDelta?: Partial<Record<ProjectProgressCategoryKey, number>>;
+    capabilityUnlocks?: ProjectCapabilityKey[];
   };
 }
 

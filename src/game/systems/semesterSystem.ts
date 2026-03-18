@@ -4,7 +4,10 @@
  */
 
 import { useGameStore } from "../../store/useGameStore";
-import { unlockProjectFeatureForCourse } from "./projectSystem";
+import {
+  applyCourseProjectProgress,
+  unlockProjectFeatureForCourse,
+} from "./projectSystem";
 
 /**
  * Initialize the current semester and set up initial game state
@@ -99,9 +102,11 @@ export function onCourseCompleted(courseId: string) {
   
   // Unlock project features tied to this course
   unlockProjectFeatureForCourse(courseId);
+  applyCourseProjectProgress(courseId);
   
   // Mark milestone as unlocked in store
-  state.setProjectState({}); // Trigger any UI updates if needed
+  state.markCourseMilestoneUnlocked(courseId);
+  state.recomputeProjectState();
   
   console.log(`✓ Course completed: ${courseId}`);
   console.log(`✓ Project features unlocked for this milestone`);

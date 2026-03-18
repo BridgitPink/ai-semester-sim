@@ -3,6 +3,63 @@
  */
 
 import type { Course } from "./course";
+import type {
+  ProjectCapabilityKey,
+  ProjectProgressCategoryKey,
+} from "./player";
+
+export interface ProjectProgressCategoryConfig {
+  id: ProjectProgressCategoryKey;
+  label: string;
+  description: string;
+  weight: number;
+}
+
+export interface ProjectCapabilityRuleConfig {
+  capability: ProjectCapabilityKey;
+  requiredCategoryMinimums?: Partial<Record<ProjectProgressCategoryKey, number>>;
+  requiredOverallProgress?: number;
+  requiredMilestoneIds?: string[];
+}
+
+export interface ProjectMilestoneConfig {
+  id: string;
+  name: string;
+  description: string;
+  requiredOverallProgress?: number;
+  requiredCapabilities?: ProjectCapabilityKey[];
+}
+
+export interface CourseProjectProgressRule {
+  courseId: string;
+  progressDelta: Partial<Record<ProjectProgressCategoryKey, number>>;
+  capabilityUnlocks?: ProjectCapabilityKey[];
+}
+
+export interface LessonProjectProgressRule {
+  lessonId: string;
+  progressDelta: Partial<Record<ProjectProgressCategoryKey, number>>;
+  capabilityUnlocks?: ProjectCapabilityKey[];
+}
+
+export interface FreeActionProjectProgressRule {
+  actionType: "project" | "study" | "rest" | "social" | "skip";
+  progressDelta: Partial<Record<ProjectProgressCategoryKey, number>>;
+}
+
+export interface LabStageProjectCategoryRule {
+  stageId: string;
+  category: ProjectProgressCategoryKey;
+}
+
+export interface ProjectWorkbenchConfig {
+  baseProgressGain: number;
+  minProgressGain: number;
+  maxProgressGain: number;
+  lessonBoostUses: number;
+  placeholderResponse: string;
+  requireLabBuilding: boolean;
+}
 
 /**
  * Template for the final project deliverable.
@@ -10,6 +67,8 @@ import type { Course } from "./course";
  */
 export interface FinalProjectTemplate {
   id: string;
+  name: string;
+  description: string;
   titleOptions: string[]; // e.g., ["AI Study Helper", "Learning Assistant Bot"]
   problemStatementOptions: string[];
   featurePool: {
@@ -17,6 +76,15 @@ export interface FinalProjectTemplate {
     name: string;
     description: string;
   }[];
+  progressCategories: ProjectProgressCategoryConfig[];
+  capabilities: ProjectCapabilityKey[];
+  milestones: ProjectMilestoneConfig[];
+  capabilityRules: ProjectCapabilityRuleConfig[];
+  courseProgressRules: CourseProjectProgressRule[];
+  lessonProgressRules: LessonProjectProgressRule[];
+  freeActionProgressRules: FreeActionProjectProgressRule[];
+  labStageCategoryRules: LabStageProjectCategoryRule[];
+  workbenchConfig: ProjectWorkbenchConfig;
   techStack: string[];
   readmeSections: string[];
 }

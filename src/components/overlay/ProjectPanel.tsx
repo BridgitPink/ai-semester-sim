@@ -1,16 +1,19 @@
 import { useGameStore } from "../../store/useGameStore";
-import { mvpSemester } from "../../game/data/semester";
 import { StatBar } from "../ui/StarBar";
 
 export function ProjectPanel() {
   const {
     closePanel,
-    projectProgress,
+    currentSemester,
     projectState,
     setProjectState,
   } = useGameStore();
 
-  const template = mvpSemester.finalProjectTemplate;
+  const template = currentSemester?.finalProjectTemplate;
+
+  if (!template) {
+    return null;
+  }
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setProjectState({ selectedTitle: e.target.value });
@@ -57,10 +60,37 @@ export function ProjectPanel() {
         <div className="project-panel-progress">
           <StatBar
             label="Project Progress"
-            value={projectProgress}
+            value={projectState.progress.overall}
             showValue={true}
           />
         </div>
+
+        <div className="project-panel-progress" style={{ marginTop: 10 }}>
+          <div className="stats-grid">
+            <StatBar label="Prompting" value={projectState.progress.prompting} />
+            <StatBar label="Retrieval" value={projectState.progress.retrieval} />
+            <StatBar label="Knowledge Base" value={projectState.progress.knowledgeBase} />
+            <StatBar label="Evaluation" value={projectState.progress.evaluation} />
+            <StatBar label="Interface" value={projectState.progress.interface} />
+          </div>
+        </div>
+
+        {projectState.milestones.length > 0 && (
+          <div className="project-section">
+            <h3>Milestones</h3>
+            <div className="features-list">
+              {projectState.milestones.map((milestone) => (
+                <div key={milestone.id} className="feature-item">
+                  <div className="feature-checkbox-label">
+                    <span className="feature-icon">{milestone.isCompleted ? "✓" : "•"}</span>
+                    <span className="feature-name">{milestone.name}</span>
+                  </div>
+                  <p className="feature-description">{milestone.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Title Selection */}
         <div className="project-section">

@@ -41,6 +41,9 @@ export const dataAndPromptingCourse: Course = {
       effects: { status: "placeholder" },
       interactionType: "read",
       completionReward: { knowledge: 15, confidence: 10 },
+      workbenchHooks: {
+        projectCategory: "prompting",
+      },
     },
     {
       id: "lesson-dpb-02",
@@ -69,6 +72,10 @@ export const dataAndPromptingCourse: Course = {
       effects: { status: "placeholder" },
       interactionType: "read",
       completionReward: { knowledge: 15, confidence: 10 },
+      workbenchHooks: {
+        projectCategory: "knowledgeBase",
+        progressMultiplier: 1.15,
+      },
     },
     {
       id: "lesson-dpb-03",
@@ -185,5 +192,11 @@ export const dataAndPromptingCourse: Course = {
   ],
   milestoneReward: {
     projectFeatures: ["feature-techstack", "feature-features"],
+    progressDelta: {
+      prompting: 10,
+      knowledgeBase: 8,
+      retrieval: 6,
+    },
+    capabilityUnlocks: ["hasPromptTemplates"],
   },
 };

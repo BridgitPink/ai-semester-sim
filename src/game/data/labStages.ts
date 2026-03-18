@@ -5,6 +5,17 @@ export interface LabStage {
   summary: string;
 }
 
+export const LAB_STAGE_PROJECT_CATEGORY_DEFAULTS: Record<string, "prompting" | "retrieval" | "knowledgeBase" | "evaluation" | "interface"> = {
+  "lab-stage-01": "prompting",
+  "lab-stage-02": "knowledgeBase",
+  "lab-stage-03": "prompting",
+  "lab-stage-04": "interface",
+  "lab-stage-05": "retrieval",
+  "lab-stage-06": "evaluation",
+  "lab-stage-07": "evaluation",
+  "lab-stage-08": "interface",
+};
+
 export interface LabProject {
   id: string;
   title: string;
@@ -95,4 +106,8 @@ export function getLabStageForWeek(week: number): LabStage {
     getActiveLabProject().stages.find((stage) => stage.week === clampedWeek) ??
     getActiveLabProject().stages[0]
   );
+}
+
+export function getDefaultProjectCategoryForLabStage(stageId: string) {
+  return LAB_STAGE_PROJECT_CATEGORY_DEFAULTS[stageId] ?? "prompting";
 }

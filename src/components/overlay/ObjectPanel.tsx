@@ -36,8 +36,12 @@ export function ObjectPanel() {
     clearBasket,
     purchaseDirectItem,
     purchaseBasket,
+    workbenchSubmission,
+    submitProjectWorkbenchInput,
+    clearWorkbenchSubmissionFeedback,
   } = useGameStore();
   const [commerceMessage, setCommerceMessage] = useState<string | null>(null);
+  const [workbenchInput, setWorkbenchInput] = useState("");
 
   const energyRecovery = 60; // Partial recovery: +60 energy
   const dayType = getCurrentDayType();
@@ -48,7 +52,14 @@ export function ObjectPanel() {
 
   useEffect(() => {
     setCommerceMessage(null);
-  }, [objectModal?.object.id, objectModal?.variant, sleepConfirmationOpen]);
+    setWorkbenchInput("");
+    clearWorkbenchSubmissionFeedback();
+  }, [
+    objectModal?.object.id,
+    objectModal?.variant,
+    sleepConfirmationOpen,
+    clearWorkbenchSubmissionFeedback,
+  ]);
 
   // Priority: sleep confirmation uses legacy state field.
   if (sleepConfirmationOpen) {
@@ -239,6 +250,70 @@ export function ObjectPanel() {
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={close}>
             Done
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  if (objectModal.variant === "project-workbench") {
+    return (
+      <>
+        <div className="modal-header">
+          <h1>{title}</h1>
+          <p>{subtitle}</p>
+        </div>
+
+        <div className="modal-body">
+          <p style={{ marginBottom: "16px" }}>{body}</p>
+          <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "8px" }}>
+            Free actions remaining: {freeActionsRemaining}/3
+          </p>
+
+          <textarea
+            value={workbenchInput}
+            onChange={(event) => setWorkbenchInput(event.target.value)}
+            placeholder="Enter your project work input..."
+            style={{
+              width: "100%",
+              minHeight: "120px",
+              border: "1px solid var(--color-border)",
+              backgroundColor: "var(--color-surface-alt)",
+              color: "var(--color-text-primary)",
+              borderRadius: "6px",
+              padding: "10px",
+              marginBottom: "12px",
+              resize: "vertical",
+            }}
+          />
+
+          {workbenchSubmission.message && (
+            <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "6px" }}>
+              {workbenchSubmission.message}
+            </p>
+          )}
+
+          {workbenchSubmission.responseText && (
+            <p style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+              Response: {workbenchSubmission.responseText}
+            </p>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={close}>
+            Cancel
+          </button>
+          <button
+            className="btn"
+            onClick={() => {
+              const result = submitProjectWorkbenchInput(workbenchInput);
+              if (result.success) {
+                setWorkbenchInput("");
+              }
+            }}
+          >
+            Submit Work
           </button>
         </div>
       </>

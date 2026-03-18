@@ -208,5 +208,9 @@ export const aiFoundationsCourse: Course = {
   ],
   milestoneReward: {
     projectFeatures: ["feature-readme", "feature-problem-statement"],
+    progressDelta: {
+      prompting: 6,
+      evaluation: 8,
+    },
   },
 };

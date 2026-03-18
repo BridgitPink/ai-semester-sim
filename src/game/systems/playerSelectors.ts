@@ -2,6 +2,11 @@ import { useGameStore } from "../../store/useGameStore";
 import type { PlayerKnowledge, PlayerStats } from "../types/player";
 import { getCurrentDaySummary, shouldPromptReturnToDorm } from "./timeSystem";
 
+export interface WorkbenchEligibility {
+  canUse: boolean;
+  reason?: string;
+}
+
 export interface PlayerStatDisplayItem {
   key: string;
   label: string;
@@ -118,4 +123,45 @@ export function getSocialReadiness(): number {
   const stats = getPlayerStats();
   const base = stats.charisma * 0.5 + stats.confidence * 0.25 + stats.energy * 0.15 + stats.curiosity * 0.1;
   return Math.max(0, Math.min(100, Math.round(base * (1 - getStressPenalty(stats.stress)))));
+}
+
+export function hasRemainingFreeActions(): boolean {
+  return useGameStore.getState().freeActionsRemaining > 0;
+}
+
+export function canUseWorkbench(): WorkbenchEligibility {
+  const state = useGameStore.getState();
+  const normalizedDayOfWeek = ((state.day - 1) % 7) + 1;
+  const isThursday = normalizedDayOfWeek === 4;
+  const isFriday = normalizedDayOfWeek === 5;
+
+  if (state.currentBuilding !== "lab") {
+    return {
+      canUse: false,
+      reason: "Use the project workbench inside the lab.",
+    };
+  }
+
+  if (!hasRemainingFreeActions()) {
+    return {
+      canUse: false,
+      reason: "No free actions remaining today.",
+    };
+  }
+
+  if (!isThursday && !isFriday) {
+    return {
+      canUse: false,
+      reason: "Workbench project sessions are available on lab days.",
+    };
+  }
+
+  if (isThursday && !state.mandatoryActivityComplete) {
+    return {
+      canUse: false,
+      reason: "Complete the lab lesson first.",
+    };
+  }
+
+  return { canUse: true };
 }

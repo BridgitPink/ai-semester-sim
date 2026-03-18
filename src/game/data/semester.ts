@@ -12,6 +12,9 @@ import { courses } from "./courses";
  */
 const mvpProjectTemplate: FinalProjectTemplate = {
   id: "ai-study-helper",
+  name: "AI Study Helper",
+  description:
+    "Build a practical AI study assistant with strong prompting foundations and a clear growth path toward retrieval and evaluation capabilities.",
   titleOptions: [
     "AI Study Helper",
     "Smart Study Buddy",
@@ -67,6 +70,241 @@ const mvpProjectTemplate: FinalProjectTemplate = {
         "Visual overview of how your app flows: input → AI API → output (bonus feature).",
     },
   ],
+  progressCategories: [
+    {
+      id: "prompting",
+      label: "Prompting",
+      description: "Prompt templates, instruction quality, and prompt workflow reliability.",
+      weight: 1,
+    },
+    {
+      id: "retrieval",
+      label: "Retrieval",
+      description: "Ability to fetch grounded context for responses.",
+      weight: 1,
+    },
+    {
+      id: "knowledgeBase",
+      label: "Knowledge Base",
+      description: "Curation and structuring of trusted learning sources.",
+      weight: 1,
+    },
+    {
+      id: "evaluation",
+      label: "Evaluation",
+      description: "Quality checks, testing loops, and response assessment.",
+      weight: 1,
+    },
+    {
+      id: "interface",
+      label: "Interface",
+      description: "Usable learner experience and interaction flow.",
+      weight: 1,
+    },
+  ],
+  capabilities: [
+    "hasPromptTemplates",
+    "hasKnowledgeSource",
+    "hasRetrievalLayer",
+    "hasEmbeddings",
+    "hasVectorDb",
+    "hasDocumentUpload",
+    "hasDashboard",
+    "hasEvaluationMetrics",
+  ],
+  milestones: [
+    {
+      id: "scope-defined",
+      name: "Project Scope Defined",
+      description: "Core problem and AI Study Helper project direction are defined.",
+      requiredOverallProgress: 10,
+    },
+    {
+      id: "prompt-workflow-built",
+      name: "Prompt Workflow Built",
+      description: "Prompt templates and repeatable prompting workflow are in place.",
+      requiredCapabilities: ["hasPromptTemplates"],
+      requiredOverallProgress: 25,
+    },
+    {
+      id: "knowledge-source-added",
+      name: "Knowledge Source Added",
+      description: "A trusted source of study content is represented in the project.",
+      requiredCapabilities: ["hasKnowledgeSource"],
+      requiredOverallProgress: 40,
+    },
+    {
+      id: "retrieval-layer-ready",
+      name: "Retrieval Layer Ready",
+      description: "Retrieval-oriented architecture is ready for later vector workflows.",
+      requiredCapabilities: ["hasRetrievalLayer"],
+      requiredOverallProgress: 55,
+    },
+    {
+      id: "response-quality-tested",
+      name: "Response Quality Tested",
+      description: "Evaluation-oriented checks are running for response quality.",
+      requiredCapabilities: ["hasEvaluationMetrics"],
+      requiredOverallProgress: 70,
+    },
+    {
+      id: "prototype-interface-working",
+      name: "Prototype Interface Working",
+      description: "A prototype interface is usable with core study-helper workflow.",
+      requiredCapabilities: ["hasDashboard"],
+      requiredOverallProgress: 85,
+    },
+  ],
+  capabilityRules: [
+    {
+      capability: "hasPromptTemplates",
+      requiredCategoryMinimums: {
+        prompting: 25,
+      },
+    },
+    {
+      capability: "hasKnowledgeSource",
+      requiredCategoryMinimums: {
+        knowledgeBase: 20,
+      },
+    },
+    {
+      capability: "hasRetrievalLayer",
+      requiredCategoryMinimums: {
+        retrieval: 25,
+        knowledgeBase: 20,
+      },
+    },
+    {
+      capability: "hasEmbeddings",
+      requiredCategoryMinimums: {
+        retrieval: 45,
+      },
+      requiredOverallProgress: 75,
+      requiredMilestoneIds: ["retrieval-layer-ready"],
+    },
+    {
+      capability: "hasVectorDb",
+      requiredCategoryMinimums: {
+        retrieval: 60,
+      },
+      requiredOverallProgress: 82,
+      requiredMilestoneIds: ["retrieval-layer-ready"],
+    },
+    {
+      capability: "hasDocumentUpload",
+      requiredCategoryMinimums: {
+        knowledgeBase: 55,
+      },
+      requiredOverallProgress: 80,
+    },
+    {
+      capability: "hasDashboard",
+      requiredCategoryMinimums: {
+        interface: 35,
+      },
+      requiredOverallProgress: 65,
+    },
+    {
+      capability: "hasEvaluationMetrics",
+      requiredCategoryMinimums: {
+        evaluation: 30,
+      },
+      requiredOverallProgress: 60,
+    },
+  ],
+  courseProgressRules: [
+    {
+      courseId: "ai-foundations",
+      progressDelta: {
+        prompting: 8,
+        evaluation: 12,
+      },
+    },
+    {
+      courseId: "data-prompting-basics",
+      progressDelta: {
+        prompting: 12,
+        knowledgeBase: 10,
+        retrieval: 8,
+      },
+    },
+    {
+      courseId: "systems-thinking-ai",
+      progressDelta: {
+        retrieval: 8,
+        evaluation: 10,
+        interface: 12,
+      },
+    },
+  ],
+  lessonProgressRules: [
+    {
+      lessonId: "lesson-dpb-02",
+      progressDelta: {
+        prompting: 4,
+      },
+    },
+    {
+      lessonId: "lesson-dpb-05",
+      progressDelta: {
+        knowledgeBase: 3,
+        retrieval: 4,
+      },
+    },
+    {
+      lessonId: "lesson-dpb-06",
+      progressDelta: {
+        evaluation: 4,
+      },
+    },
+    {
+      lessonId: "lesson-stai-03",
+      progressDelta: {
+        interface: 3,
+      },
+    },
+    {
+      lessonId: "lesson-stai-05",
+      progressDelta: {
+        evaluation: 4,
+      },
+    },
+  ],
+  freeActionProgressRules: [
+    {
+      actionType: "project",
+      progressDelta: {
+        prompting: 3,
+        interface: 2,
+      },
+    },
+    {
+      actionType: "study",
+      progressDelta: {
+        knowledgeBase: 2,
+        evaluation: 1,
+      },
+    },
+  ],
+  labStageCategoryRules: [
+    { stageId: "lab-stage-01", category: "prompting" },
+    { stageId: "lab-stage-02", category: "knowledgeBase" },
+    { stageId: "lab-stage-03", category: "prompting" },
+    { stageId: "lab-stage-04", category: "interface" },
+    { stageId: "lab-stage-05", category: "retrieval" },
+    { stageId: "lab-stage-06", category: "evaluation" },
+    { stageId: "lab-stage-07", category: "evaluation" },
+    { stageId: "lab-stage-08", category: "interface" },
+  ],
+  workbenchConfig: {
+    baseProgressGain: 6,
+    minProgressGain: 2,
+    maxProgressGain: 14,
+    lessonBoostUses: 2,
+    placeholderResponse: "ok..",
+    requireLabBuilding: true,
+  },
   techStack: [
     "Python",
     "JavaScript/TypeScript",

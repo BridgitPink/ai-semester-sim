@@ -1,5 +1,6 @@
 import { useGameStore } from "../../store/useGameStore";
 import { findCourseForLesson, onCourseCompleted } from "../../game/systems/semesterSystem";
+import { applyLessonProjectProgress } from "../../game/systems/projectSystem";
 import { getRequiredLessonForToday } from "../../game/systems/academicScheduleSystem";
 import { getKnowledgeBranchForCourse, toKnowledgeDelta } from "../../game/systems/playerStatSystem";
 import { LessonContentRenderer } from "../lessons/LessonContentRenderer";
@@ -17,6 +18,7 @@ export function LessonModal() {
     completedLessons,
     courseCompletions,
     addCompletedLesson,
+    applyLessonWorkbenchHooks,
     applyPlayerDeltas,
     completeMandatoryActivity,
   } = useGameStore();
@@ -48,6 +50,8 @@ export function LessonModal() {
 
     // Add lesson to completed
     addCompletedLesson(lesson.id, course.id);
+    applyLessonWorkbenchHooks(lesson.id);
+    applyLessonProjectProgress(lesson.id, course.id);
 
     // Consume today's academic block if this is the scheduled required lesson.
     if (satisfiesTodaysRequirement) {

@@ -41,6 +41,9 @@ export const systemsThinkingCourse: Course = {
       effects: { status: "placeholder" },
       interactionType: "read",
       completionReward: { knowledge: 15, confidence: 10 },
+      workbenchHooks: {
+        projectCategory: "interface",
+      },
     },
     {
       id: "lesson-stai-02",
@@ -172,5 +175,11 @@ export const systemsThinkingCourse: Course = {
   ],
   milestoneReward: {
     projectFeatures: ["feature-bonus-architecture"],
+    progressDelta: {
+      retrieval: 6,
+      evaluation: 8,
+      interface: 10,
+    },
+    capabilityUnlocks: ["hasDashboard"],
   },
 };

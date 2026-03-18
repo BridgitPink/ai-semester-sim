@@ -30,6 +30,7 @@ export type ObjectInteractionType =
   | "roommate-desk"
   | "roommate-storage"
   | "lab-activity"
+  | "project-workbench"
   | "shop-shelf"
   | "checkout"
   | "order-food"
