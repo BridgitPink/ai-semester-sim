@@ -339,6 +339,48 @@ export function handleObjectInteraction(object: InteriorObject): void {
       break;
     }
 
+    case "order-food": {
+      store.openObjectModal({
+        variant: "direct-purchase",
+        interactionType: object.interactionType,
+        object,
+        title: object.label,
+        subtitle: "Order at counter",
+        body:
+          object.metadata?.description ??
+          "Buy food and drinks directly. Purchased items go straight to inventory.",
+      });
+      break;
+    }
+
+    case "shop-shelf": {
+      store.openObjectModal({
+        variant: "shelf-browse",
+        interactionType: object.interactionType,
+        object,
+        title: object.label,
+        subtitle: "Browse shelf",
+        body:
+          object.metadata?.description ??
+          "Select items to add to your basket. You can pay at checkout when ready.",
+      });
+      break;
+    }
+
+    case "checkout": {
+      store.openObjectModal({
+        variant: "checkout",
+        interactionType: object.interactionType,
+        object,
+        title: object.label,
+        subtitle: "Basket checkout",
+        body:
+          object.metadata?.description ??
+          "Review your basket total and pay to move items into your inventory.",
+      });
+      break;
+    }
+
     default: {
       // MVP rule: every non-exit interior interaction must open a window.
       openPlaceholder();

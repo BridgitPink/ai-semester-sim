@@ -1,6 +1,13 @@
+import { useEffect, useMemo, useState } from "react";
 import { useGameStore } from "../../store/useGameStore";
 import { canSleepNow, getCurrentDayType } from "../../game/systems/timeSystem";
 import { getActionEffects } from "../../game/systems/freeActionSystem";
+import { getCounterMenuItems, getStoreShelfItems } from "../../game/data/items/menus";
+import { getItemDefinition } from "../../game/data/items/catalog";
+
+function formatMoney(value: number): string {
+  return `$${value}`;
+}
 
 /**
  * Sleep Confirmation Panel - Displays sleep confirmation window content
@@ -20,13 +27,28 @@ export function ObjectPanel() {
     useFreeAction: spendFreeAction,
     labActivityStatus,
     completeLabActivityForToday,
+    wallet,
+    storeBasket,
+    canAfford,
+    getBasketTotal,
+    addItemToBasket,
+    removeItemFromBasket,
+    clearBasket,
+    purchaseDirectItem,
+    purchaseBasket,
   } = useGameStore();
+  const [commerceMessage, setCommerceMessage] = useState<string | null>(null);
 
   const energyRecovery = 60; // Partial recovery: +60 energy
   const dayType = getCurrentDayType();
   const sleepAllowed = canSleepNow();
+  const basketTotal = getBasketTotal();
 
   const handleConfirmSleep = () => confirmSleep(energyRecovery);
+
+  useEffect(() => {
+    setCommerceMessage(null);
+  }, [objectModal?.object.id, objectModal?.variant, sleepConfirmationOpen]);
 
   // Priority: sleep confirmation uses legacy state field.
   if (sleepConfirmationOpen) {
@@ -135,6 +157,239 @@ export function ObjectPanel() {
     completeLabActivityForToday();
     close();
   };
+
+  const storeBasketRows = useMemo(
+    () =>
+      storeBasket
+        .map((entry) => {
+          const item = getItemDefinition(entry.itemId);
+          if (!item) return null;
+          return {
+            item,
+            quantity: entry.quantity,
+            subtotal: item.price * entry.quantity,
+          };
+        })
+        .filter((entry) => entry !== null),
+    [storeBasket]
+  );
+
+  if (objectModal.variant === "direct-purchase") {
+    const menuId =
+      typeof objectModal.object.metadata?.menuId === "string"
+        ? objectModal.object.metadata.menuId
+        : "";
+    const menuItems = getCounterMenuItems(menuId);
+
+    return (
+      <>
+        <div className="modal-header">
+          <h1>{title}</h1>
+          <p>{subtitle}</p>
+        </div>
+
+        <div className="modal-body">
+          <p style={{ marginBottom: "16px" }}>{body}</p>
+          <p style={{ marginBottom: "16px" }}>Wallet: {formatMoney(wallet)}</p>
+
+          {menuItems.length === 0 && (
+            <p style={{ color: "var(--color-text-secondary)" }}>
+              No purchasable items are configured for this counter yet.
+            </p>
+          )}
+
+          {menuItems.map((item) => (
+            <div
+              key={item.id}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "8px",
+                marginBottom: "10px",
+              }}
+            >
+              <div>
+                <strong>{item.name}</strong>
+                <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                  {item.description}
+                </div>
+              </div>
+              <button
+                className="btn"
+                onClick={() => {
+                  const result = purchaseDirectItem(item.id, 1);
+                  setCommerceMessage(result.message);
+                }}
+              >
+                {canAfford(item.price)
+                  ? `Buy ${formatMoney(item.price)}`
+                  : `Need ${formatMoney(item.price)}`}
+              </button>
+            </div>
+          ))}
+
+          {commerceMessage && (
+            <p style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+              {commerceMessage}
+            </p>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={close}>
+            Done
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  if (objectModal.variant === "shelf-browse") {
+    const shelfId =
+      typeof objectModal.object.metadata?.shelfId === "string"
+        ? objectModal.object.metadata.shelfId
+        : "";
+    const shelfItems = getStoreShelfItems(shelfId);
+
+    return (
+      <>
+        <div className="modal-header">
+          <h1>{title}</h1>
+          <p>{subtitle}</p>
+        </div>
+
+        <div className="modal-body">
+          <p style={{ marginBottom: "16px" }}>{body}</p>
+          <p style={{ marginBottom: "16px" }}>Basket total: {formatMoney(basketTotal)}</p>
+
+          {shelfItems.length === 0 && (
+            <p style={{ color: "var(--color-text-secondary)" }}>
+              This shelf has no configured items yet.
+            </p>
+          )}
+
+          {shelfItems.map((item) => (
+            <div
+              key={item.id}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "8px",
+                marginBottom: "10px",
+              }}
+            >
+              <div>
+                <strong>{item.name}</strong>
+                <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                  {formatMoney(item.price)}
+                </div>
+              </div>
+              <button
+                className="btn"
+                onClick={() => {
+                  const result = addItemToBasket(item.id, 1);
+                  setCommerceMessage(result.message);
+                }}
+              >
+                Add to Basket
+              </button>
+            </div>
+          ))}
+
+          {commerceMessage && (
+            <p style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+              {commerceMessage}
+            </p>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={close}>
+            Done
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  if (objectModal.variant === "checkout") {
+    return (
+      <>
+        <div className="modal-header">
+          <h1>{title}</h1>
+          <p>{subtitle}</p>
+        </div>
+
+        <div className="modal-body">
+          <p style={{ marginBottom: "16px" }}>{body}</p>
+          <p style={{ marginBottom: "8px" }}>Wallet: {formatMoney(wallet)}</p>
+          <p style={{ marginBottom: "16px" }}>Total: {formatMoney(basketTotal)}</p>
+
+          {storeBasketRows.length === 0 && (
+            <p style={{ color: "var(--color-text-secondary)", marginBottom: "12px" }}>
+              Basket is empty.
+            </p>
+          )}
+
+          {storeBasketRows.map((entry) => (
+            <div
+              key={entry.item.id}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "8px",
+                marginBottom: "10px",
+              }}
+            >
+              <div>
+                <strong>{entry.item.name}</strong> x{entry.quantity}
+                <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                  {formatMoney(entry.subtotal)}
+                </div>
+              </div>
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  const result = removeItemFromBasket(entry.item.id, 1);
+                  setCommerceMessage(result.message);
+                }}
+              >
+                Remove 1
+              </button>
+            </div>
+          ))}
+
+          {commerceMessage && (
+            <p style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+              {commerceMessage}
+            </p>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={() => clearBasket()}>
+            Clear Basket
+          </button>
+          <button
+            className="btn"
+            disabled={storeBasketRows.length === 0}
+            onClick={() => {
+              const result = purchaseBasket();
+              setCommerceMessage(result.message);
+            }}
+          >
+            Pay Now
+          </button>
+          <button className="btn btn-secondary" onClick={close}>
+            Done
+          </button>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

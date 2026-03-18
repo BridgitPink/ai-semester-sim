@@ -19,6 +19,7 @@ export const CAMPUS_STORE_OBJECTS: InteriorObject[] = [
     interactionRange: 56,
     metadata: {
       description: "Browse notebooks, pens, and planner accessories.",
+      shelfId: "campus-store-shelf-notes",
     },
   },
   {
@@ -37,6 +38,7 @@ export const CAMPUS_STORE_OBJECTS: InteriorObject[] = [
     interactionRange: 56,
     metadata: {
       description: "Browse notebooks, pens, and planner accessories.",
+      shelfId: "campus-store-shelf-notes",
     },
   },
   {
@@ -55,6 +57,7 @@ export const CAMPUS_STORE_OBJECTS: InteriorObject[] = [
     interactionRange: 56,
     metadata: {
       description: "Find chargers, cables, and everyday tech extras.",
+      shelfId: "campus-store-shelf-tech",
     },
   },
   {
@@ -73,6 +76,7 @@ export const CAMPUS_STORE_OBJECTS: InteriorObject[] = [
     interactionRange: 56,
     metadata: {
       description: "Find chargers, cables, and everyday tech extras.",
+      shelfId: "campus-store-shelf-tech",
     },
   },
   {
@@ -91,6 +95,7 @@ export const CAMPUS_STORE_OBJECTS: InteriorObject[] = [
     interactionRange: 56,
     metadata: {
       description: "Check seasonal campus merch and study comfort items.",
+      shelfId: "campus-store-shelf-merch",
     },
   },
   {
@@ -109,6 +114,7 @@ export const CAMPUS_STORE_OBJECTS: InteriorObject[] = [
     interactionRange: 56,
     metadata: {
       description: "Check seasonal campus merch and study comfort items.",
+      shelfId: "campus-store-shelf-merch",
     },
   },
 
@@ -128,8 +134,8 @@ export const CAMPUS_STORE_OBJECTS: InteriorObject[] = [
     collisionMargin: 8,
     interactionRange: 64,
     metadata: {
-      description:
-        "Checkout is in MVP mode. Economy and inventory systems are coming soon.",
+      description: "Pay here to complete your basket purchase.",
+      checkoutId: "campus-store-main",
     },
   },
   {

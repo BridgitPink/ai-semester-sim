@@ -11,13 +11,14 @@ export const CAFE_OBJECTS: InteriorObject[] = [
     relativeY: -0.7,
     width: 110,
     height: 54,
-    interactionType: "reference-materials",
+    interactionType: "order-food",
     label: "Counter",
     color: 0xa1887f,
     isCollider: true,
     collisionMargin: 6,
     metadata: {
-      description: "Order flow and social systems are still in progress.",
+      description: "Order drinks and snacks directly at the counter.",
+      menuId: "cafe-main",
     },
   },
   {
@@ -28,13 +29,14 @@ export const CAFE_OBJECTS: InteriorObject[] = [
     relativeY: -0.7,
     width: 110,
     height: 54,
-    interactionType: "reference-materials",
+    interactionType: "order-food",
     label: "Counter",
     color: 0xa1887f,
     isCollider: true,
     collisionMargin: 6,
     metadata: {
-      description: "Order flow and social systems are still in progress.",
+      description: "Order drinks and snacks directly at the counter.",
+      menuId: "cafe-main",
     },
   },
 

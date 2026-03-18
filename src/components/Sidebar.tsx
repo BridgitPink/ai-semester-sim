@@ -189,7 +189,7 @@ export function Sidebar() {
 
       {/* Footer info */}
       <div className="sidebar-footer">
-        <p>Press M or Tab for Menu</p>
+        <p>Press M/Tab for Menu, I for Inventory</p>
       </div>
     </div>
   );

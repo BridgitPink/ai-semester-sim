@@ -3,6 +3,7 @@ import { CoursePanel } from "./CoursePanel";
 import { ProjectPanel } from "./ProjectPanel";
 import { InteractionPanel } from "./InteractionPanel";
 import { ObjectPanel } from "./ObjectPanel";
+import { InventoryPanel } from "./InventoryPanel";
 
 export function InteractionModal() {
   const { activePanel, currentLocation, selectedNpcId, closePanel } =
@@ -55,6 +56,9 @@ export function InteractionModal() {
 
           {/* Object Panel (for classroom objects and placeholders) */}
           {activePanel === "object" && <ObjectPanel />}
+
+          {/* Inventory Panel */}
+          {activePanel === "inventory" && <InventoryPanel />}
         </div>
       </div>
     </>

@@ -103,6 +103,9 @@ export interface InteriorObject {
   metadata?: Record<string, unknown> & {
     description?: string;
     npcId?: string;
+    menuId?: string;
+    shelfId?: string;
+    checkoutId?: string;
   };
 
   /**

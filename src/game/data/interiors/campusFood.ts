@@ -17,8 +17,8 @@ export const CAMPUS_FOOD_OBJECTS: InteriorObject[] = [
     collisionMargin: 6,
     interactionRange: 62,
     metadata: {
-      description:
-        "Place a food order. Meal effects and buffs are planned for future updates.",
+      description: "Place an order and buy food directly.",
+      menuId: "campus-food-main",
     },
   },
   {
@@ -36,8 +36,8 @@ export const CAMPUS_FOOD_OBJECTS: InteriorObject[] = [
     collisionMargin: 6,
     interactionRange: 62,
     metadata: {
-      description:
-        "Place a food order. Meal effects and buffs are planned for future updates.",
+      description: "Place an order and buy food directly.",
+      menuId: "campus-food-main",
     },
   },
   {

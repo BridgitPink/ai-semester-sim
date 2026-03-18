@@ -6,6 +6,7 @@ import type {
   PlayerStats,
   ProjectState,
 } from "../game/types/player";
+import type { BasketItem, EconomyActionResult, InventoryItem } from "../game/types/item";
 import type { Semester } from "../game/types/semester";
 import type { CourseCompletion, Lesson } from "../game/types/course";
 import type { InteriorObject, ObjectInteractionType } from "../game/types/interiorObject";
@@ -17,6 +18,19 @@ import {
   DEFAULT_PLAYER_STATS,
   type PlayerDeltaPayload,
 } from "../game/systems/playerStatSystem";
+import {
+  STARTING_WALLET,
+  WEEKLY_PAY_AMOUNT,
+  addToBasket,
+  addToInventory,
+  calculateBasketTotal,
+  canAffordAmount,
+  purchaseBasketItems,
+  purchaseDirect,
+  removeFromBasket,
+  removeFromInventory,
+  shouldGrantWeeklyPay as isEligibleForWeeklyPay,
+} from "../game/systems/economySystem";
 
 export type LocationId =
   | "dorm"
@@ -28,7 +42,7 @@ export type LocationId =
   | "lab"
   | "advisor-office"
   | null;
-type PanelType = "none" | "location" | "npc" | "course" | "project" | "object";
+type PanelType = "none" | "location" | "npc" | "course" | "project" | "object" | "inventory";
 type SceneKey = "GameScene" | "ClassroomScene";
 type DayType = "class" | "lab" | "off";
 type FreeActionType = "rest" | "social" | "project" | "study" | "skip";
@@ -38,7 +52,14 @@ export interface RelationshipState {
   familiarity: number; // 0-100
 }
 
-type ObjectModalVariant = "placeholder" | "info" | "extra-credit" | "lab";
+type ObjectModalVariant =
+  | "placeholder"
+  | "info"
+  | "extra-credit"
+  | "lab"
+  | "direct-purchase"
+  | "shelf-browse"
+  | "checkout";
 
 interface ObjectModalContext {
   variant: ObjectModalVariant;
@@ -88,6 +109,10 @@ interface GameStore {
   knowledge: PlayerKnowledge;
   stats: PlayerStats;
   projectProgress: number;
+  wallet: number;
+  inventory: InventoryItem[];
+  storeBasket: BasketItem[];
+  lastWeeklyPayWeek: number | null;
   
   // Course & learning progress
   courseCompletions: CourseCompletion[];
@@ -103,6 +128,7 @@ interface GameStore {
   openNpcPanel: (npcId: string) => void;
   openCoursePanel: () => void;
   openProjectPanel: () => void;
+  openInventoryPanel: () => void;
   closePanel: () => void;
   toggleMenu: () => void;
 
@@ -129,6 +155,17 @@ interface GameStore {
   useFreeAction: (actionType: FreeActionType, effects: PlayerDeltaPayload) => void;
   
   addCompletedLesson: (lessonId: string, courseId: string) => void;
+  canAfford: (amount: number) => boolean;
+  getBasketTotal: () => number;
+  addItemToInventory: (itemId: string, quantity?: number) => EconomyActionResult;
+  removeItemFromInventory: (itemId: string, quantity?: number) => EconomyActionResult;
+  addItemToBasket: (itemId: string, quantity?: number) => EconomyActionResult;
+  removeItemFromBasket: (itemId: string, quantity?: number) => EconomyActionResult;
+  clearBasket: () => void;
+  purchaseDirectItem: (itemId: string, quantity?: number) => EconomyActionResult;
+  purchaseBasket: () => EconomyActionResult;
+  shouldGrantWeeklyPay: (newDay: number, newWeek: number) => boolean;
+  grantWeeklyPayIfEligible: (newDay: number, newWeek: number) => boolean;
   applyPlayerStatDelta: (delta: PlayerStatDelta) => void;
   applyPlayerKnowledgeDelta: (delta: PlayerKnowledgeDelta) => void;
   applyPlayerDeltas: (payload: PlayerDeltaPayload) => void;
@@ -173,6 +210,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   knowledge: DEFAULT_PLAYER_KNOWLEDGE,
   stats: DEFAULT_PLAYER_STATS,
   projectProgress: 0,
+  wallet: STARTING_WALLET,
+  inventory: [],
+  storeBasket: [],
+  lastWeeklyPayWeek: null,
   
   // Course & learning state
   courseCompletions: [],
@@ -209,6 +250,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       activePanel: "project",
       selectedNpcId: null,
+    }),
+  openInventoryPanel: () =>
+    set({
+      activePanel: "inventory",
+      selectedNpcId: null,
+      sleepConfirmationOpen: false,
+      objectModal: null,
     }),
   closePanel: () =>
     set({
@@ -380,6 +428,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         newWeek = 8; // Clamp to prevent further advancement
       }
     }
+
+    state.grantWeeklyPayIfEligible(newDay, newWeek);
     
     // Reset daily state for new day
     const newDayType = getDayType(newDay);
@@ -450,6 +500,117 @@ export const useGameStore = create<GameStore>((set, get) => ({
       
       set({ completedLessons: newCompletedLessons, courseCompletions: newCompletions });
     }
+  },
+
+  canAfford: (amount) => {
+    const state = get();
+    return canAffordAmount(state.wallet, amount);
+  },
+
+  getBasketTotal: () => {
+    const state = get();
+    return calculateBasketTotal(state.storeBasket);
+  },
+
+  addItemToInventory: (itemId, quantity = 1) => {
+    const state = get();
+    if (quantity <= 0) {
+      return { success: false, message: "Quantity must be at least 1." };
+    }
+
+    set({ inventory: addToInventory(state.inventory, itemId, quantity) });
+    return { success: true, message: "Added item to inventory." };
+  },
+
+  removeItemFromInventory: (itemId, quantity = 1) => {
+    const state = get();
+    if (quantity <= 0) {
+      return { success: false, message: "Quantity must be at least 1." };
+    }
+
+    const hasItem = state.inventory.some((entry) => entry.itemId === itemId);
+    if (!hasItem) {
+      return { success: false, message: "Item is not in inventory." };
+    }
+
+    set({ inventory: removeFromInventory(state.inventory, itemId, quantity) });
+    return { success: true, message: "Removed item from inventory." };
+  },
+
+  addItemToBasket: (itemId, quantity = 1) => {
+    const state = get();
+    if (quantity <= 0) {
+      return { success: false, message: "Quantity must be at least 1." };
+    }
+
+    set({ storeBasket: addToBasket(state.storeBasket, itemId, quantity) });
+    return { success: true, message: "Added item to basket." };
+  },
+
+  removeItemFromBasket: (itemId, quantity = 1) => {
+    const state = get();
+    if (quantity <= 0) {
+      return { success: false, message: "Quantity must be at least 1." };
+    }
+
+    const hasItem = state.storeBasket.some((entry) => entry.itemId === itemId);
+    if (!hasItem) {
+      return { success: false, message: "Item is not in basket." };
+    }
+
+    set({ storeBasket: removeFromBasket(state.storeBasket, itemId, quantity) });
+    return { success: true, message: "Removed item from basket." };
+  },
+
+  clearBasket: () => {
+    set({ storeBasket: [] });
+  },
+
+  purchaseDirectItem: (itemId, quantity = 1) => {
+    const state = get();
+    const next = purchaseDirect(state.wallet, state.inventory, itemId, quantity);
+
+    if (next.result.success) {
+      set({
+        wallet: next.wallet,
+        inventory: next.inventory,
+      });
+    }
+
+    return next.result;
+  },
+
+  purchaseBasket: () => {
+    const state = get();
+    const next = purchaseBasketItems(state.wallet, state.inventory, state.storeBasket);
+
+    if (next.result.success) {
+      set({
+        wallet: next.wallet,
+        inventory: next.inventory,
+        storeBasket: next.basket,
+      });
+    }
+
+    return next.result;
+  },
+
+  shouldGrantWeeklyPay: (newDay, newWeek) => {
+    const state = get();
+    return isEligibleForWeeklyPay(newDay, newWeek, state.lastWeeklyPayWeek);
+  },
+
+  grantWeeklyPayIfEligible: (newDay, newWeek) => {
+    const state = get();
+    if (!state.shouldGrantWeeklyPay(newDay, newWeek)) {
+      return false;
+    }
+
+    set({
+      wallet: state.wallet + WEEKLY_PAY_AMOUNT,
+      lastWeeklyPayWeek: newWeek,
+    });
+    return true;
   },
   
   applyPlayerStatDelta: (delta) => {
@@ -553,6 +714,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       knowledge: DEFAULT_PLAYER_KNOWLEDGE,
       stats: DEFAULT_PLAYER_STATS,
       projectProgress: 0,
+      wallet: STARTING_WALLET,
+      inventory: [],
+      storeBasket: [],
+      lastWeeklyPayWeek: null,
     });
   },
 }));

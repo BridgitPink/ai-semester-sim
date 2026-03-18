@@ -13,7 +13,7 @@ import { LessonModal } from "./LessonModal";
  * - Lesson modal (lesson content display)
  */
 export function Hud() {
-  const { toggleMenu } = useGameStore();
+  const { toggleMenu, openInventoryPanel, closePanel, activePanel, menuOpen } = useGameStore();
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -22,12 +22,28 @@ export function Hud() {
       if (e.key === "m" || e.key === "M" || e.key === "Tab") {
         e.preventDefault();
         toggleMenu();
+        return;
+      }
+
+      // Toggle inventory with I
+      if (e.key === "i" || e.key === "I") {
+        e.preventDefault();
+
+        if (menuOpen) {
+          toggleMenu();
+        }
+
+        if (activePanel === "inventory") {
+          closePanel();
+        } else {
+          openInventoryPanel();
+        }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggleMenu]);
+  }, [activePanel, closePanel, menuOpen, openInventoryPanel, toggleMenu]);
 
   return (
     <>
