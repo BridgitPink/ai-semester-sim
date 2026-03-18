@@ -5,7 +5,16 @@ import type { CourseCompletion, Lesson } from "../game/types/course";
 import type { ProjectState } from "../game/types/player";
 import type { InteriorObject, ObjectInteractionType } from "../game/types/interiorObject";
 
-export type LocationId = "dorm" | "classroom" | "library" | "cafe" | "lab" | "advisor-office" | null;
+export type LocationId =
+  | "dorm"
+  | "classroom"
+  | "library"
+  | "cafe"
+  | "campus-store"
+  | "campus-food"
+  | "lab"
+  | "advisor-office"
+  | null;
 type PanelType = "none" | "location" | "npc" | "course" | "project" | "object";
 type SceneKey = "GameScene" | "ClassroomScene";
 type DayType = "class" | "lab" | "off";

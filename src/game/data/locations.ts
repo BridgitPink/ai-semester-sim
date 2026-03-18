@@ -61,6 +61,24 @@ export const locations: LocationProfile[] = [
     size: { width: 160, height: 85 },
     color: 0x8b7355, // warm brown
   },
+  // Campus Store near social/academic edge for quick supply runs
+  {
+    id: "campus-store",
+    name: "Campus Store",
+    type: "support",
+    description: "Grab supplies, study gear, and campus merch between classes.",
+    size: { width: 165, height: 85 },
+    color: 0x9b7b4f, // tan brown
+  },
+  // Campus Food Area as a larger social and dining hub
+  {
+    id: "campus-food",
+    name: "Campus Food Area",
+    type: "social",
+    description: "Order food, recharge, and hang out with other students.",
+    size: { width: 190, height: 90 },
+    color: 0x8c6a3d, // toasted brown
+  },
   // Lab on right side, lower area
   {
     id: "lab",
@@ -82,6 +100,8 @@ export const relativeLocationLayout: Record<string, { x: number; y: number }> = 
   classroom: { x: 0.40, y: 0.20 },
   library: { x: 0.80, y: 0.32 },
   cafe: { x: 0.65, y: 0.59 },
+  "campus-store": { x: 0.47, y: 0.62 },
+  "campus-food": { x: 0.32, y: 0.44 },
   lab: { x: 0.85, y: 0.83 },
 };
 

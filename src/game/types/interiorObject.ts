@@ -29,7 +29,11 @@ export type ObjectInteractionType =
   | "roommate-bed"
   | "roommate-desk"
   | "roommate-storage"
-  | "lab-activity";
+  | "lab-activity"
+  | "shop-shelf"
+  | "checkout"
+  | "order-food"
+  | "table-interaction";
 
 /**
  * Positioned relative to inner play area center.

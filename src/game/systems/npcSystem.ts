@@ -364,6 +364,19 @@ export const NPC_LOCATION_ANCHORS: Record<CampusLocationId, Array<{ dx: number; 
     { dx: 75, dy: 35 },
     { dx: 0, dy: 45 },
   ],
+  "campus-store": [
+    { dx: -70, dy: -25 },
+    { dx: 70, dy: -25 },
+    { dx: -65, dy: 30 },
+    { dx: 65, dy: 30 },
+  ],
+  "campus-food": [
+    { dx: -90, dy: -30 },
+    { dx: 90, dy: -30 },
+    { dx: -85, dy: 35 },
+    { dx: 85, dy: 35 },
+    { dx: 0, dy: 45 },
+  ],
   lab: [
     { dx: -85, dy: -30 },
     { dx: 85, dy: -30 },

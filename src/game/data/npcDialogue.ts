@@ -200,6 +200,14 @@ export const npcDialogueSets: Record<NpcDialogueSetId, NpcDialogueSet> = {
         "Welcome in.",
         "Take a breath—you’re doing fine.",
       ],
+      "loc:campus-store": [
+        "Welcome to the campus store.",
+        "If you need supplies, I can point you to the right shelf.",
+      ],
+      "loc:campus-food": [
+        "You can order right here.",
+        "Grab a table when you are ready.",
+      ],
       default: [
         "Hey there.",
         "Need anything?",

@@ -3,6 +3,8 @@ export type CampusLocationId =
   | "classroom"
   | "library"
   | "cafe"
+  | "campus-store"
+  | "campus-food"
   | "lab"
   | "advisor-office";
 
@@ -29,6 +31,8 @@ export type NpcRole =
   | "teacher-classroom"
   | "teacher-library"
   | "worker-cafe"
+  | "worker-store"
+  | "worker-food"
   | "tech-lab";
 
 export type NpcRoutineTemplateId =
@@ -41,6 +45,8 @@ export type NpcRoutineTemplateId =
   | "routine-teacher-classroom"
   | "routine-teacher-library"
   | "routine-worker-cafe"
+  | "routine-worker-store"
+  | "routine-worker-food"
   | "routine-tech-lab";
 
 export type NpcBehaviorProfileId =

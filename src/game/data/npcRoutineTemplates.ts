@@ -366,6 +366,78 @@ export const npcRoutineTemplates: Record<NpcRoutineTemplateId, NpcRoutineTemplat
     },
   },
 
+  "routine-worker-store": {
+    id: "routine-worker-store",
+    dayTypeToPhaseCandidates: {
+      class: {
+        academic: [
+          { locationId: "campus-store", activity: "working checkout", base: 95 },
+          { locationId: "campus-store", activity: "stocking shelves", base: 85 },
+        ],
+        free: [
+          { locationId: "campus-store", activity: "closing tasks", base: 90 },
+          { locationId: "campus-store", activity: "inventory check", base: 82 },
+        ],
+      },
+      lab: {
+        academic: [
+          { locationId: "campus-store", activity: "working checkout", base: 95 },
+          { locationId: "campus-store", activity: "stocking shelves", base: 85 },
+        ],
+        free: [
+          { locationId: "campus-store", activity: "closing tasks", base: 90 },
+          { locationId: "campus-store", activity: "inventory check", base: 82 },
+        ],
+      },
+      off: {
+        academic: [
+          { locationId: "campus-store", activity: "working checkout", base: 95 },
+          { locationId: "campus-store", activity: "stocking shelves", base: 85 },
+        ],
+        free: [
+          { locationId: "campus-store", activity: "closing tasks", base: 90 },
+          { locationId: "campus-store", activity: "inventory check", base: 82 },
+        ],
+      },
+    },
+  },
+
+  "routine-worker-food": {
+    id: "routine-worker-food",
+    dayTypeToPhaseCandidates: {
+      class: {
+        academic: [
+          { locationId: "campus-food", activity: "taking orders", base: 95 },
+          { locationId: "campus-food", activity: "prepping food", base: 88 },
+        ],
+        free: [
+          { locationId: "campus-food", activity: "cleanup", base: 88 },
+          { locationId: "campus-food", activity: "restocking", base: 82 },
+        ],
+      },
+      lab: {
+        academic: [
+          { locationId: "campus-food", activity: "taking orders", base: 95 },
+          { locationId: "campus-food", activity: "prepping food", base: 88 },
+        ],
+        free: [
+          { locationId: "campus-food", activity: "cleanup", base: 88 },
+          { locationId: "campus-food", activity: "restocking", base: 82 },
+        ],
+      },
+      off: {
+        academic: [
+          { locationId: "campus-food", activity: "taking orders", base: 95 },
+          { locationId: "campus-food", activity: "prepping food", base: 88 },
+        ],
+        free: [
+          { locationId: "campus-food", activity: "cleanup", base: 88 },
+          { locationId: "campus-food", activity: "restocking", base: 82 },
+        ],
+      },
+    },
+  },
+
   "routine-tech-lab": {
     id: "routine-tech-lab",
     dayTypeToPhaseCandidates: {

@@ -1,5 +1,7 @@
 import type { InteriorConfig, InteriorObject } from "../../types/interiorObject";
 import { ADVISOR_OFFICE_INTERIOR_CONFIG } from "./advisorOffice";
+import { CAMPUS_FOOD_INTERIOR_CONFIG } from "./campusFood";
+import { CAMPUS_STORE_INTERIOR_CONFIG } from "./campusStore";
 import { CAFE_INTERIOR_CONFIG } from "./cafe";
 import { CLASSROOM_INTERIOR_CONFIG } from "./classroom";
 import { DORM_INTERIOR_CONFIG } from "./dorm";
@@ -11,6 +13,8 @@ const interiorRegistry: Record<string, InteriorConfig> = {
   dorm: DORM_INTERIOR_CONFIG,
   library: LIBRARY_INTERIOR_CONFIG,
   cafe: CAFE_INTERIOR_CONFIG,
+  "campus-store": CAMPUS_STORE_INTERIOR_CONFIG,
+  "campus-food": CAMPUS_FOOD_INTERIOR_CONFIG,
   lab: LAB_INTERIOR_CONFIG,
   "advisor-office": ADVISOR_OFFICE_INTERIOR_CONFIG,
 };
@@ -25,6 +29,8 @@ export function getInteriorObjects(buildingId: string): InteriorObject[] {
 
 export {
   ADVISOR_OFFICE_INTERIOR_CONFIG,
+  CAMPUS_FOOD_INTERIOR_CONFIG,
+  CAMPUS_STORE_INTERIOR_CONFIG,
   CAFE_INTERIOR_CONFIG,
   CLASSROOM_INTERIOR_CONFIG,
   DORM_INTERIOR_CONFIG,

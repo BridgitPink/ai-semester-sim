@@ -1,4 +1,6 @@
 export { ADVISOR_OFFICE_OBJECTS } from "./interiors/advisorOffice";
+export { CAMPUS_FOOD_OBJECTS } from "./interiors/campusFood";
+export { CAMPUS_STORE_OBJECTS } from "./interiors/campusStore";
 export { CAFE_OBJECTS } from "./interiors/cafe";
 export { CLASSROOM_OBJECTS } from "./interiors/classroom";
 export { DORM_OBJECTS } from "./interiors/dorm";

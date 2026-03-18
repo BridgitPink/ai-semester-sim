@@ -271,6 +271,14 @@ export class InteriorScene extends BuildingSceneBase {
         return "[E] Roommate's Storage";
       case "lab-activity":
         return "[E] Lab Activity";
+      case "shop-shelf":
+        return "[E] Browse Shelf";
+      case "checkout":
+        return "[E] Checkout";
+      case "order-food":
+        return "[E] Order Food";
+      case "table-interaction":
+        return "[E] Use Table";
       default:
         return "";
     }
