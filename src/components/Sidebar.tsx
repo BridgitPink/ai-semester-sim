@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { useGameStore } from "../store/useGameStore";
 import { StatBar } from "./ui/StarBar";
-import { getCurrentDaySummary, canSleepNow } from "../game/systems/timeSystem";
-import { getAcademicReadiness, getSocialReadiness } from "../game/systems/playerSelectors";
+import {
+  getAcademicReadiness,
+  getPrimaryGameplayStats,
+  getSidebarStatusSummary,
+  getSocialReadiness,
+} from "../game/systems/playerSelectors";
 
 type TabType = "stats" | "course" | "project";
 
@@ -18,15 +22,12 @@ type TabType = "stats" | "course" | "project";
 export function Sidebar() {
   const [activeTab, setActiveTab] = useState<TabType>("stats");
   const {
-    knowledge,
-    stats,
-    projectProgress,
     courseCompletions,
     projectState,
   } = useGameStore();
 
-  const daySummary = getCurrentDaySummary();
-  const canSleep = canSleepNow();
+  const sidebarStatus = getSidebarStatusSummary();
+  const primaryGameplayStats = getPrimaryGameplayStats();
   const academicReadiness = getAcademicReadiness();
   const socialReadiness = getSocialReadiness();
 
@@ -36,10 +37,37 @@ export function Sidebar() {
       <div className="sidebar-header">
         <div className="sidebar-title">AI Semester Sim</div>
         <div className="sidebar-progress">
-          Week {daySummary.week} • {daySummary.dayName}
+          Week {sidebarStatus.week} • {sidebarStatus.dayName}
         </div>
         <div className="sidebar-day-type">
-          {daySummary.dayTypeLabel}
+          {sidebarStatus.dayTypeLabel}
+        </div>
+      </div>
+
+      <div className="sidebar-persistent-group">
+        <div className="sidebar-day-info sidebar-day-info--persistent">
+          <div className="day-info-row">
+            <span className="label">Mandatory Activity:</span>
+            <span className="value">{sidebarStatus.mandatoryActivityLabel}</span>
+          </div>
+          <div className="day-info-row">
+            <span className="label">Free Actions:</span>
+            <span className="value">{sidebarStatus.freeActionsRemaining}/3</span>
+          </div>
+          {sidebarStatus.hintMessage && (
+            <div className="day-info-hint">{sidebarStatus.hintMessage}</div>
+          )}
+        </div>
+
+        <div className="sidebar-stats sidebar-stats--compact">
+          {primaryGameplayStats.map((stat) => (
+            <StatBar
+              key={stat.key}
+              label={stat.label}
+              value={stat.value}
+              compact
+            />
+          ))}
         </div>
       </div>
 
@@ -70,47 +98,15 @@ export function Sidebar() {
         {/* Stats Tab */}
         {activeTab === "stats" && (
           <div className="sidebar-section">
-            <h2>Day Progress</h2>
-            <div className="sidebar-day-info">
-              <div className="day-info-row">
-                <span className="label">Mandatory Activity:</span>
-                <span className="value">{daySummary.mandatoryActivityLabel}</span>
-              </div>
-              <div className="day-info-row">
-                <span className="label">Free Actions:</span>
-                <span className="value">{daySummary.freeActionsRemaining}/3</span>
-              </div>
-              {canSleep && (
-                <div className="day-info-hint">
-                  💤 Ready to sleep
-                </div>
-              )}
-            </div>
-
-            <h2>Player Stats</h2>
-            <div className="sidebar-stats">
-              <StatBar label="Energy" value={stats.energy} />
-              <StatBar label="Stress" value={stats.stress} />
-              <StatBar label="Focus" value={stats.focus} />
-              <StatBar label="Confidence" value={stats.confidence} />
-              <StatBar label="Charisma" value={stats.charisma} />
-              <StatBar label="Curiosity" value={stats.curiosity} />
-              <StatBar label="Discipline" value={stats.discipline} />
-            </div>
-
-            <h2>Academic Progress</h2>
-            <div className="sidebar-stats">
-              <StatBar label="AI Foundations" value={knowledge.aiFoundations} />
-              <StatBar label="Data & Prompting" value={knowledge.dataPrompting} />
-              <StatBar label="Applied AI Building" value={knowledge.appliedAIBuilding} />
-              <StatBar label="Project" value={projectProgress} />
-            </div>
-
             <h2>Readiness</h2>
             <div className="sidebar-stats">
               <StatBar label="Academic" value={academicReadiness} />
               <StatBar label="Social" value={socialReadiness} />
             </div>
+
+            <p className="sidebar-note">
+              Open Menu for full profile details and academic branch progress.
+            </p>
           </div>
         )}
 

@@ -1,7 +1,13 @@
 import { useGameStore } from "../../store/useGameStore";
 import { StatBar } from "../ui/StarBar";
 import { PanelSection } from "../ui/PanelSection";
-import { getAcademicReadiness, getSocialReadiness } from "../../game/systems/playerSelectors";
+import {
+  getAcademicReadiness,
+  getKnowledgeStats,
+  getPrimaryGameplayStats,
+  getSecondaryPlayerStats,
+  getSocialReadiness,
+} from "../../game/systems/playerSelectors";
 
 export function MenuOverlay() {
   const {
@@ -10,13 +16,14 @@ export function MenuOverlay() {
     week,
     day,
     currentSemester,
-    knowledge,
-    stats,
     projectProgress,
     courseCompletions,
     projectState,
   } = useGameStore();
 
+  const primaryGameplayStats = getPrimaryGameplayStats();
+  const secondaryPlayerStats = getSecondaryPlayerStats();
+  const knowledgeStats = getKnowledgeStats();
   const academicReadiness = getAcademicReadiness();
   const socialReadiness = getSocialReadiness();
 
@@ -47,25 +54,27 @@ export function MenuOverlay() {
               </div>
             </PanelSection>
 
-            {/* Stats Section */}
-            <PanelSection title="Player Stats">
+            <PanelSection title="Core Stats">
               <div className="stats-grid">
-                <StatBar label="Energy" value={stats.energy} />
-                <StatBar label="Stress" value={stats.stress} />
-                <StatBar label="Focus" value={stats.focus} />
-                <StatBar label="Confidence" value={stats.confidence} />
-                <StatBar label="Charisma" value={stats.charisma} />
-                <StatBar label="Curiosity" value={stats.curiosity} />
-                <StatBar label="Discipline" value={stats.discipline} />
+                {primaryGameplayStats.map((stat) => (
+                  <StatBar key={stat.key} label={stat.label} value={stat.value} />
+                ))}
+              </div>
+            </PanelSection>
+
+            <PanelSection title="Player Profile">
+              <div className="stats-grid">
+                {secondaryPlayerStats.map((stat) => (
+                  <StatBar key={stat.key} label={stat.label} value={stat.value} />
+                ))}
               </div>
             </PanelSection>
 
             <PanelSection title="Academic Progress">
               <div className="stats-grid">
-                <StatBar label="AI Foundations" value={knowledge.aiFoundations} />
-                <StatBar label="Data & Prompting" value={knowledge.dataPrompting} />
-                <StatBar label="Applied AI Building" value={knowledge.appliedAIBuilding} />
-                <StatBar label="Project Progress" value={projectProgress} />
+                {knowledgeStats.map((stat) => (
+                  <StatBar key={stat.key} label={stat.label} value={stat.value} />
+                ))}
                 <StatBar label="Academic Readiness" value={academicReadiness} />
                 <StatBar label="Social Readiness" value={socialReadiness} />
               </div>
