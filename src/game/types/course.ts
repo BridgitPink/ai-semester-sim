@@ -79,7 +79,7 @@ export interface Lesson {
 
 /**
  * A course within a semester (e.g., "AI Foundations")
- * Contains 3 lessons for MVP.
+ * Contains a week-by-week lesson plan for the semester.
  */
 export interface Course {
   id: string;

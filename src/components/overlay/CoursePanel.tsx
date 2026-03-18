@@ -1,10 +1,10 @@
 import { useGameStore } from "../../store/useGameStore";
-import { courses } from "../../game/data/courses";
 import { StatBar } from "../ui/StarBar";
 
 export function CoursePanel() {
   const {
     closePanel,
+    currentSemester,
     courseCompletions,
     completedLessons,
     openLessonModal,
@@ -39,7 +39,7 @@ export function CoursePanel() {
   }
 
   // Find the course definition
-  const courseData = courses.find((c) => c.id === activeCourse.courseId);
+  const courseData = currentSemester?.courses.find((course) => course.id === activeCourse.courseId);
 
   if (!courseData) {
     return (
