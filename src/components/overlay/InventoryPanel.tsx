@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useGameStore } from "../../store/useGameStore";
 import { getItemDefinition } from "../../game/data/items/catalog";
 
@@ -7,7 +7,15 @@ function formatMoney(value: number): string {
 }
 
 export function InventoryPanel() {
-  const { wallet, inventory, closePanel } = useGameStore();
+  const {
+    wallet,
+    inventory,
+    closePanel,
+    canUseItem,
+    useInventoryItem,
+    getItemUsePreview,
+  } = useGameStore();
+  const [useMessage, setUseMessage] = useState<string | null>(null);
 
   const totalItemCount = useMemo(
     () => inventory.reduce((sum, entry) => sum + entry.quantity, 0),
@@ -40,6 +48,8 @@ export function InventoryPanel() {
           const unitPrice = item?.price ?? entry.unitPrice;
           const itemName = item?.name ?? entry.itemName;
           const subtotal = unitPrice * entry.quantity;
+          const itemCanUse = canUseItem(entry.itemId);
+          const usePreview = getItemUsePreview(entry.itemId);
 
           return (
             <div
@@ -57,16 +67,47 @@ export function InventoryPanel() {
                 <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
                   {entry.category}
                 </div>
+                {itemCanUse && usePreview && (
+                  <div style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
+                    {usePreview}
+                  </div>
+                )}
               </div>
-              <div style={{ textAlign: "right" }}>
+              <div
+                style={{
+                  textAlign: "right",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-end",
+                  gap: "4px",
+                }}
+              >
                 <div>x{entry.quantity}</div>
                 <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
                   {formatMoney(subtotal)}
                 </div>
+                {itemCanUse && (
+                  <button
+                    className="btn btn-small"
+                    disabled={entry.quantity <= 0}
+                    onClick={() => {
+                      const result = useInventoryItem(entry.itemId);
+                      setUseMessage(result.message);
+                    }}
+                  >
+                    Use
+                  </button>
+                )}
               </div>
             </div>
           );
         })}
+
+        {useMessage && (
+          <p style={{ marginTop: "8px", fontSize: "13px", color: "var(--color-text-secondary)" }}>
+            {useMessage}
+          </p>
+        )}
       </div>
 
       <div className="modal-footer">

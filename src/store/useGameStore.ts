@@ -31,6 +31,15 @@ import {
   removeFromInventory,
   shouldGrantWeeklyPay as isEligibleForWeeklyPay,
 } from "../game/systems/economySystem";
+import {
+  applyItemEffects,
+  canUseInventoryItemById,
+  consumeInventoryItemUnit,
+  getItemUsePreview as getItemUsePreviewText,
+  getUsableInventoryEntries,
+  hasStatDelta,
+} from "../game/systems/itemUseSystem";
+import { getItemEffects } from "../game/data/items/catalog";
 
 export type LocationId =
   | "dorm"
@@ -164,6 +173,10 @@ interface GameStore {
   clearBasket: () => void;
   purchaseDirectItem: (itemId: string, quantity?: number) => EconomyActionResult;
   purchaseBasket: () => EconomyActionResult;
+  canUseItem: (itemId: string) => boolean;
+  getUsableInventoryItems: () => InventoryItem[];
+  getItemUsePreview: (itemId: string) => string | null;
+  useInventoryItem: (itemId: string) => EconomyActionResult;
   shouldGrantWeeklyPay: (newDay: number, newWeek: number) => boolean;
   grantWeeklyPayIfEligible: (newDay: number, newWeek: number) => boolean;
   applyPlayerStatDelta: (delta: PlayerStatDelta) => void;
@@ -593,6 +606,50 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     return next.result;
+  },
+
+  canUseItem: (itemId) => {
+    const state = get();
+    return canUseInventoryItemById(state.inventory, itemId).canUse;
+  },
+
+  getUsableInventoryItems: () => {
+    const state = get();
+    return getUsableInventoryEntries(state.inventory);
+  },
+
+  getItemUsePreview: (itemId) => getItemUsePreviewText(itemId),
+
+  useInventoryItem: (itemId) => {
+    const state = get();
+    const eligibility = canUseInventoryItemById(state.inventory, itemId);
+    if (!eligibility.canUse || !eligibility.item) {
+      return {
+        success: false,
+        message: eligibility.reason ?? "Item cannot be used.",
+      };
+    }
+
+    const effects = getItemEffects(eligibility.item);
+    const statDelta = applyItemEffects(effects);
+    if (!hasStatDelta(statDelta)) {
+      return {
+        success: false,
+        message: `${eligibility.item.name} has no effect to apply.`,
+      };
+    }
+
+    const consumed = consumeInventoryItemUnit(state.inventory, itemId);
+    if (!consumed.result.success) {
+      return consumed.result;
+    }
+
+    set({
+      stats: applyPlayerStatDelta(state.stats, statDelta),
+      inventory: consumed.inventory,
+    });
+
+    return consumed.result;
   },
 
   shouldGrantWeeklyPay: (newDay, newWeek) => {
