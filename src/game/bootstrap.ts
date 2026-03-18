@@ -6,6 +6,9 @@
 import { useGameStore } from "../store/useGameStore";
 import { mvpProgram } from "./data/semester";
 import { npcProfiles } from "./data/npcs";
+import { startGameAutosave } from "../persistence/autosave";
+import { loadGameFromServer, resetGameOnServer } from "../persistence/persistenceService";
+import { applyGameSavePayload } from "../persistence/storeSaveAdapter";
 
 const BOOTSTRAP_GUARD_KEY = "__aiSemesterSim_bootstrapped";
 const INTRO_SEEN_STORAGE_KEY = "aiSemesterSim:introSeen";
@@ -17,7 +20,7 @@ const INTRO_SEEN_STORAGE_KEY = "aiSemesterSim:introSeen";
  * - Set starting player position
  * - Prepare NPCs and locations
  */
-export function initializeGame() {
+export async function initializeGame() {
   // React dev StrictMode can mount/unmount/mount and run effects twice.
   // Guard bootstrap so initialization is deterministic per page load.
   const globalAny = globalThis as unknown as Record<string, unknown>;
@@ -26,8 +29,6 @@ export function initializeGame() {
   }
   globalAny[BOOTSTRAP_GUARD_KEY] = true;
 
-  const store = useGameStore.getState();
-  
   // Load first semester from MVP program
   const semester = mvpProgram.semesters[0];
   
@@ -35,28 +36,17 @@ export function initializeGame() {
     console.error("No semester found in MVP program");
     return;
   }
-  
-  // Initialize semester in store (sets up course completions, week/day, etc)
-  store.initializeSemester(semester);
-  
-  // Initialize NPC relationships (neutral start = 50)
-  npcProfiles.forEach((npc) => {
-    store.updateNpcRelationship(npc.id, 0); // Set to base 50
-  });
-  
-  // Set starting location (Dorm) only. Do not open a legacy location modal on boot.
-  store.setLocation("dorm");
 
-  // Show a simple intro/tutorial panel exactly once per browser (not room-specific).
-  try {
-    if (!localStorage.getItem(INTRO_SEEN_STORAGE_KEY)) {
-      localStorage.setItem(INTRO_SEEN_STORAGE_KEY, "1");
-      store.openIntroPanel();
-    }
-  } catch {
-    // If storage is unavailable, still show the intro to avoid a blank first-time experience.
-    store.openIntroPanel();
+  initializeRuntimeState(semester);
+
+  const savedPayload = await loadGameFromServer();
+  const loadedFromSave = savedPayload ? applyGameSavePayload(savedPayload) : false;
+
+  if (!loadedFromSave) {
+    showIntroPanelIfNeeded();
   }
+
+  startGameAutosave();
   
   console.log(`✓ Game initialized for semester: ${semester.title}`);
   console.log(`✓ Courses loaded: ${semester.courses.map((c) => c.title).join(", ")}`);
@@ -66,16 +56,48 @@ export function initializeGame() {
 /**
  * Reset the game to initial state (for restart or new game)
  */
-export function resetGame() {
-  const store = useGameStore.getState();
-  
+export async function resetGame() {
+  const resetResult = await resetGameOnServer();
+
   const semester = mvpProgram.semesters[0];
   if (!semester) return;
   
+  initializeRuntimeState(semester);
+  showIntroPanelIfNeeded(true);
+
+  if (!resetResult && import.meta.env.DEV) {
+    console.warn("[persistence] Backend reset failed; runtime was reset locally.");
+  }
+
+  useGameStore.setState({ menuOpen: false, activePanel: "none" });
+}
+
+function initializeRuntimeState(semester: (typeof mvpProgram.semesters)[number]) {
+  const store = useGameStore.getState();
+
+  // Initialize semester in store (sets up course completions, week/day, etc)
   store.initializeSemester(semester);
+
+  // Initialize NPC relationships (neutral start = 50)
   npcProfiles.forEach((npc) => {
-    store.updateNpcRelationship(npc.id, 0);
+    store.updateNpcRelationship(npc.id, 0); // Set to base 50
   });
-  
+
+  // Set starting location (Dorm) only. Do not open a legacy location modal on boot.
   store.setLocation("dorm");
+}
+
+function showIntroPanelIfNeeded(force = false) {
+  const store = useGameStore.getState();
+
+  // Show a simple intro/tutorial panel exactly once per browser (not room-specific).
+  try {
+    if (force || !localStorage.getItem(INTRO_SEEN_STORAGE_KEY)) {
+      localStorage.setItem(INTRO_SEEN_STORAGE_KEY, "1");
+      store.openIntroPanel();
+    }
+  } catch {
+    // If storage is unavailable, still show the intro to avoid a blank first-time experience.
+    store.openIntroPanel();
+  }
 }

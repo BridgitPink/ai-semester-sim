@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useGameStore } from "../../store/useGameStore";
 import { StatBar } from "../ui/StarBar";
 import { PanelSection } from "../ui/PanelSection";
+import { resetGame } from "../../game/bootstrap";
 import {
   getAcademicReadiness,
   getKnowledgeStats,
@@ -10,6 +12,7 @@ import {
 } from "../../game/systems/playerSelectors";
 
 export function MenuOverlay() {
+  const [isResetting, setIsResetting] = useState(false);
   const {
     menuOpen,
     toggleMenu,
@@ -25,6 +28,26 @@ export function MenuOverlay() {
   const knowledgeStats = getKnowledgeStats();
   const academicReadiness = getAcademicReadiness();
   const socialReadiness = getSocialReadiness();
+
+  const handleResetGame = async () => {
+    if (isResetting) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Restart semester? This will clear your cloud save and reset progress for this account."
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      await resetGame();
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   if (!menuOpen) return null;
 
@@ -179,6 +202,9 @@ export function MenuOverlay() {
           </div>
 
           <div className="modal-footer">
+            <button className="btn btn-secondary" onClick={handleResetGame} disabled={isResetting}>
+              {isResetting ? "Resetting..." : "Restart Semester"}
+            </button>
             <button className="btn btn-secondary" onClick={toggleMenu}>
               Close Menu
             </button>

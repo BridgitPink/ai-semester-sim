@@ -199,6 +199,26 @@ function createProjectStateFromSemester(semester: Semester | null): ProjectState
   };
 }
 
+async function saveCheckpointAfterSleep() {
+  try {
+    const [{ createGameSavePayload }, { saveGameToServer }] = await Promise.all([
+      import("../persistence/storeSaveAdapter"),
+      import("../persistence/persistenceService"),
+    ]);
+
+    const payload = createGameSavePayload();
+    if (!payload) {
+      return;
+    }
+
+    await saveGameToServer(payload);
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn("[persistence] Failed to save sleep checkpoint.", error);
+    }
+  }
+}
+
 export type LocationId =
   | "dorm"
   | "classroom"
@@ -244,7 +264,7 @@ interface CourseGradebook {
   gradedAttempts: Record<string, GradedAttemptRecord>; // assessmentId -> record
 }
 
-interface PracticeHistory {
+export interface PracticeHistory {
   practiceAttempts: Record<string, PracticeAttemptRecord>; // assessmentId -> record
 }
 
@@ -909,6 +929,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Update energy and close modal
     set({ sleepConfirmationOpen: false, activePanel: "none" });
     state.applyPlayerStatDelta({ energy: energyRecovery });
+
+    // Sleep is a critical progression checkpoint, so persist immediately.
+    void saveCheckpointAfterSleep();
   },
   
   // Advance to next day: increment day, or week+day if week ends

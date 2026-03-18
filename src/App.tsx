@@ -19,6 +19,7 @@ import { initializeGame } from "./game/bootstrap";
 export default function App() {
   const gameRef = useRef<Phaser.Game | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const bootstrapStartedRef = useRef(false);
   const [containerSize, setContainerSize] = useState({ width: 960, height: 540 });
 
   // Calculate responsive game size (right column only)
@@ -59,37 +60,49 @@ export default function App() {
 
   // Initialize Phaser game
   useEffect(() => {
-    if (!containerRef.current || gameRef.current) return;
+    if (!containerRef.current || gameRef.current || bootstrapStartedRef.current) return;
 
-    // Initialize game state and data
-    initializeGame();
+    bootstrapStartedRef.current = true;
+    let cancelled = false;
 
-    // Create Phaser game instance with responsive scale
-    gameRef.current = new Phaser.Game({
-      type: Phaser.AUTO,
-      width: containerSize.width,
-      height: containerSize.height,
-      parent: containerRef.current,
-      backgroundColor: "#1e1e2e",
-      physics: {
-        default: "arcade",
-        arcade: {
-          debug: false,
+    const boot = async () => {
+      // Initialize game state, auth, and persistence hydration.
+      await initializeGame();
+      if (cancelled || !containerRef.current || gameRef.current) {
+        return;
+      }
+
+      // Create Phaser game instance with responsive scale
+      gameRef.current = new Phaser.Game({
+        type: Phaser.AUTO,
+        width: containerSize.width,
+        height: containerSize.height,
+        parent: containerRef.current,
+        backgroundColor: "#1e1e2e",
+        physics: {
+          default: "arcade",
+          arcade: {
+            debug: false,
+          },
         },
-      },
-      input: {
-        keyboard: true,
-      },
-      scene: [GameScene, InteriorScene],
-      scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-      },
-    });
+        input: {
+          keyboard: true,
+        },
+        scene: [GameScene, InteriorScene],
+        scale: {
+          mode: Phaser.Scale.FIT,
+          autoCenter: Phaser.Scale.CENTER_BOTH,
+        },
+      });
+    };
+
+    void boot();
 
     return () => {
+      cancelled = true;
       gameRef.current?.destroy(true);
       gameRef.current = null;
+      bootstrapStartedRef.current = false;
     };
   }, [containerSize]);
 
