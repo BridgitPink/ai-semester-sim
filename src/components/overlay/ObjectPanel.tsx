@@ -22,9 +22,12 @@ export function ObjectPanel() {
     confirmSleep,
     skipMandatoryActivityForToday,
     freeActionsRemaining,
+    currentSemester,
+    completedLessons,
     objectModal,
     clearObjectModal,
     useFreeAction: spendFreeAction,
+    openStudyLessonSession,
     labActivityStatus,
     completeLabActivityForToday,
     wallet,
@@ -47,6 +50,62 @@ export function ObjectPanel() {
   const dayType = getCurrentDayType();
   const sleepAllowed = canSleepNow();
   const basketTotal = getBasketTotal();
+
+  const canSpendFreeAction = freeActionsRemaining > 0;
+
+  const shouldOfferStudyFreeAction =
+    !!objectModal &&
+    (objectModal.interactionType === "study" ||
+      objectModal.interactionType === "practice-exercise");
+
+  const completedLessonOptions = useMemo(() => {
+    if (!shouldOfferStudyFreeAction) return [] as Array<{ id: string; label: string }>;
+    if (!currentSemester) return [] as Array<{ id: string; label: string }>;
+
+    const allLessons = currentSemester.courses.flatMap((course) =>
+      course.lessons.map((lesson) => ({
+        id: lesson.id,
+        courseTitle: course.title,
+        week: lesson.week,
+        title: lesson.title,
+      }))
+    );
+
+    return allLessons
+      .filter((lesson) => completedLessons.includes(lesson.id))
+      .sort((a, b) => {
+        if (a.week !== b.week) return a.week - b.week;
+        return a.title.localeCompare(b.title);
+      })
+      .map((lesson) => ({
+        id: lesson.id,
+        label: `Week ${lesson.week} — ${lesson.courseTitle}: ${lesson.title}`,
+      }));
+  }, [currentSemester, completedLessons, shouldOfferStudyFreeAction]);
+
+  const [selectedStudyLessonId, setSelectedStudyLessonId] = useState<string>("");
+
+  useEffect(() => {
+    if (!shouldOfferStudyFreeAction) return;
+    if (selectedStudyLessonId) return;
+    setSelectedStudyLessonId(completedLessonOptions[0]?.id ?? "");
+  }, [shouldOfferStudyFreeAction, completedLessonOptions, selectedStudyLessonId]);
+
+  const storeBasketRows = useMemo(
+    () =>
+      storeBasket
+        .map((entry) => {
+          const item = getItemDefinition(entry.itemId);
+          if (!item) return null;
+          return {
+            item,
+            quantity: entry.quantity,
+            subtotal: item.price * entry.quantity,
+          };
+        })
+        .filter((entry) => entry !== null),
+    [storeBasket]
+  );
 
   const handleConfirmSleep = () => confirmSleep(energyRecovery);
 
@@ -147,16 +206,13 @@ export function ObjectPanel() {
     descriptionFromData ??
     `Interacting with ${objectModal.object.name}.`;
 
-  const canSpendFreeAction = freeActionsRemaining > 0;
   const close = () => clearObjectModal();
 
-  const shouldOfferStudyFreeAction =
-    objectModal.interactionType === "study" ||
-    objectModal.interactionType === "practice-exercise";
-
   const handleDoStudy = () => {
+    if (!canSpendFreeAction) return;
+    if (!selectedStudyLessonId) return;
     spendFreeAction("study", getActionEffects("study"));
-    close();
+    openStudyLessonSession(selectedStudyLessonId);
   };
 
   const handleDoExtraCredit = () => {
@@ -168,22 +224,6 @@ export function ObjectPanel() {
     completeLabActivityForToday();
     close();
   };
-
-  const storeBasketRows = useMemo(
-    () =>
-      storeBasket
-        .map((entry) => {
-          const item = getItemDefinition(entry.itemId);
-          if (!item) return null;
-          return {
-            item,
-            quantity: entry.quantity,
-            subtotal: item.price * entry.quantity,
-          };
-        })
-        .filter((entry) => entry !== null),
-    [storeBasket]
-  );
 
   if (objectModal.variant === "direct-purchase") {
     const menuId =
@@ -489,9 +529,42 @@ export function ObjectPanel() {
         )}
 
         {shouldOfferStudyFreeAction && (
-          <p style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
-            Free actions remaining today: {freeActionsRemaining}/3
-          </p>
+          <>
+            <p style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+              Free actions remaining today: {freeActionsRemaining}/3
+            </p>
+
+            <div style={{ marginTop: "10px" }}>
+              <div style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "6px" }}>
+                Choose a completed lesson to study:
+              </div>
+
+              {completedLessonOptions.length === 0 ? (
+                <div style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                  No completed lessons yet. Finish a lesson first to unlock study mode.
+                </div>
+              ) : (
+                <select
+                  value={selectedStudyLessonId}
+                  onChange={(event) => setSelectedStudyLessonId(event.target.value)}
+                  style={{
+                    width: "100%",
+                    border: "1px solid var(--color-border)",
+                    backgroundColor: "var(--color-surface-alt)",
+                    color: "var(--color-text-primary)",
+                    borderRadius: "6px",
+                    padding: "8px",
+                  }}
+                >
+                  {completedLessonOptions.map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </>
         )}
       </div>
 
@@ -516,9 +589,9 @@ export function ObjectPanel() {
           <button
             className="btn"
             onClick={handleDoStudy}
-            disabled={!canSpendFreeAction}
+            disabled={!canSpendFreeAction || completedLessonOptions.length === 0 || !selectedStudyLessonId}
           >
-            Study (Use 1 Free Action)
+            Study Lesson (Use 1 Free Action)
           </button>
         )}
 

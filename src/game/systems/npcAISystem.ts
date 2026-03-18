@@ -39,6 +39,7 @@ export function getNpcLine(npc: NpcDefinition): string {
  * Return the NPC's current mood from the deterministic decision pipeline.
  */
 export function updateNpcMood(npcId: string, _context: { week?: number; playerAction?: string }): NpcMood {
+  void _context;
   return decideNpcNow(npcId)?.mood ?? "focused";
 }
 
@@ -90,6 +91,7 @@ export function updateNpcRelationshipsOverWeek(): void {
  * Get dialogue for an NPC. Future hook point for LLM or structured dialogue.
  */
 export function generateNpcDialogue(npcId: string, _topic?: string): string {
+  void _topic;
   const view = getNpcInteractionView(npcId);
   return view?.lines?.join(" ") ?? `${npcId.replace(/-/g, " ")} is focused on their studies this semester.`;
 }

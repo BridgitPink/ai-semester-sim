@@ -298,7 +298,7 @@ export function handleObjectInteraction(object: InteriorObject): void {
         break;
       }
 
-      store.openLessonModal(requiredLesson);
+      store.openOfficialLessonSession(requiredLesson.id, "teacher-desk");
       console.log(`✓ Opened scheduled lesson: ${requiredLesson.title}`);
       break;
     }

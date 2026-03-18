@@ -12,6 +12,7 @@ import {
   pickAnchorSlotIndex,
 } from "../systems/npcSystem";
 import type { InteriorObject } from "../types/interiorObject";
+import { isUIInputCaptured } from "../systems/uiInputCapture";
 
 type PlayerRect = Phaser.GameObjects.Rectangle & {
   body: Phaser.Physics.Arcade.Body;
@@ -71,6 +72,9 @@ export class GameScene extends Phaser.Scene {
     location: LocationProfile;
     position: { x: number; y: number };
   }> = [];
+
+  // Tracks whether we've disabled Phaser keyboard capture due to UI typing focus.
+  private keyboardCaptureDisabledForUI = false;
 
   constructor() {
     super("GameScene");
@@ -158,7 +162,15 @@ export class GameScene extends Phaser.Scene {
     this.lastNpcSyncKey = `${store.week}:${store.day}:${getCurrentDayType()}:${store.mandatoryActivityComplete}`;
 
     this.input.keyboard?.on("keydown-E", () => {
+      if (isUIInputCaptured()) return;
       this.checkInteraction();
+    });
+
+    // Safety: if the Scene shuts down while a DOM input is focused, ensure
+    // keyboard capture is restored for the next Scene.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.input.keyboard?.enableGlobalCapture();
+      this.keyboardCaptureDisabledForUI = false;
     });
 
     console.log(`✓ GameScene created with ${locations.length} locations`);
@@ -167,6 +179,24 @@ export class GameScene extends Phaser.Scene {
 
   update(_time: number, delta: number) {
     if (!this.player?.body) return;
+
+    // If a DOM input is focused, let the browser handle key events for typing.
+    // Phaser key captures (enableCapture=true by default) can prevent characters
+    // like WASD/Tab from reaching the focused input.
+    const uiCaptured = isUIInputCaptured();
+    if (uiCaptured && !this.keyboardCaptureDisabledForUI) {
+      this.input.keyboard?.disableGlobalCapture();
+      this.keyboardCaptureDisabledForUI = true;
+    } else if (!uiCaptured && this.keyboardCaptureDisabledForUI) {
+      this.input.keyboard?.enableGlobalCapture();
+      this.keyboardCaptureDisabledForUI = false;
+    }
+
+    // When the user is actively typing in an input/textarea/contenteditable element,
+    // ignore gameplay movement controls.
+    if (uiCaptured) {
+      this.player.body.setVelocity(0, 0);
+    }
 
     const store = useGameStore.getState();
     const syncKey = `${store.week}:${store.day}:${getCurrentDayType()}:${store.mandatoryActivityComplete}`;
@@ -192,27 +222,29 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    const speed = 180;
-    let vx = 0;
-    let vy = 0;
+    if (!uiCaptured) {
+      const speed = 180;
+      let vx = 0;
+      let vy = 0;
 
-    // Arrow keys
-    if (this.cursors.left?.isDown) vx -= 1;
-    if (this.cursors.right?.isDown) vx += 1;
-    if (this.cursors.up?.isDown) vy -= 1;
-    if (this.cursors.down?.isDown) vy += 1;
+      // Arrow keys
+      if (this.cursors.left?.isDown) vx -= 1;
+      if (this.cursors.right?.isDown) vx += 1;
+      if (this.cursors.up?.isDown) vy -= 1;
+      if (this.cursors.down?.isDown) vy += 1;
 
-    // WASD
-    if (this.wasdKeys.a?.isDown) vx -= 1;
-    if (this.wasdKeys.d?.isDown) vx += 1;
-    if (this.wasdKeys.w?.isDown) vy -= 1;
-    if (this.wasdKeys.s?.isDown) vy += 1;
+      // WASD
+      if (this.wasdKeys.a?.isDown) vx -= 1;
+      if (this.wasdKeys.d?.isDown) vx += 1;
+      if (this.wasdKeys.w?.isDown) vy -= 1;
+      if (this.wasdKeys.s?.isDown) vy += 1;
 
-    if (vx !== 0 || vy !== 0) {
-      const magnitude = Math.sqrt(vx * vx + vy * vy);
-      this.player.body.setVelocity((vx / magnitude) * speed, (vy / magnitude) * speed);
-    } else {
-      this.player.body.setVelocity(0, 0);
+      if (vx !== 0 || vy !== 0) {
+        const magnitude = Math.sqrt(vx * vx + vy * vy);
+        this.player.body.setVelocity((vx / magnitude) * speed, (vy / magnitude) * speed);
+      } else {
+        this.player.body.setVelocity(0, 0);
+      }
     }
 
     // Move NPCs toward their wander targets + keep labels synced.

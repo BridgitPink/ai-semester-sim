@@ -43,20 +43,8 @@ export interface TipBlock {
 
 export type LessonContentBlock = TextBlock | VideoBlock | ExampleBlock | TipBlock;
 
-export interface QuizPlaceholder {
-  status: "placeholder";
-  note?: string;
-}
-
-export interface StudyExtensionPlaceholder {
-  status: "placeholder";
-  note?: string;
-}
-
-export interface EffectsPlaceholder {
-  status: "placeholder";
-  note?: string;
-}
+import type { Assessment } from "./assessment";
+import type { StudyExtension } from "./study";
 
 /**
  * A single lesson within a course.
@@ -70,9 +58,10 @@ export interface Lesson {
   concept: string;
   summary: string; // 1 paragraph
   contentBlocks: LessonContentBlock[];
-  quiz: QuizPlaceholder;
-  studyExtension: StudyExtensionPlaceholder;
-  effects: EffectsPlaceholder;
+  /** Official assessment run at the end of a classroom lesson (graded). */
+  gradedAssessment?: Assessment;
+  /** Optional study-mode recap/extra content and practice assessment. */
+  studyExtension?: StudyExtension;
   interactionType: LessonInteractionType; // for future expansion
   completionReward: {
     knowledge: number;

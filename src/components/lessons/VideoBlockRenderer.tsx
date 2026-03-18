@@ -2,35 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import type { VideoBlock } from "../../game/types/course";
 import { getSafeVideoEmbedUrl } from "../../game/systems/youtube";
 
-export function VideoBlockRenderer(props: { block: VideoBlock }) {
-  const { embedUrl } = useMemo(() => getSafeVideoEmbedUrl(props.block.url), [props.block.url]);
-
+function VideoFrame(props: { embedUrl: string; title: string }) {
   const [loaded, setLoaded] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
-    setLoaded(false);
-    setTimedOut(false);
-
-    if (!embedUrl) return;
-
     const timeout = window.setTimeout(() => setTimedOut(true), 3500);
     return () => window.clearTimeout(timeout);
-  }, [embedUrl]);
-
-  const title = typeof props.block.title === "string" && props.block.title.trim().length > 0
-    ? props.block.title.trim()
-    : "Lesson video";
-
-  if (!embedUrl) {
-    return (
-      <div className="lesson-block lesson-block--video">
-        <p style={{ color: "var(--color-text-secondary)" }}>
-          Video unavailable. Continue with lesson.
-        </p>
-      </div>
-    );
-  }
+  }, []);
 
   const showFallback = timedOut && !loaded;
 
@@ -44,8 +23,8 @@ export function VideoBlockRenderer(props: { block: VideoBlock }) {
 
       {!showFallback && (
         <iframe
-          title={title}
-          src={embedUrl}
+          title={props.title}
+          src={props.embedUrl}
           width="100%"
           height="315"
           loading="lazy"
@@ -62,4 +41,25 @@ export function VideoBlockRenderer(props: { block: VideoBlock }) {
       </p>
     </div>
   );
+}
+
+export function VideoBlockRenderer(props: { block: VideoBlock }) {
+  const { embedUrl } = useMemo(() => getSafeVideoEmbedUrl(props.block.url), [props.block.url]);
+
+  const title = typeof props.block.title === "string" && props.block.title.trim().length > 0
+    ? props.block.title.trim()
+    : "Lesson video";
+
+  if (!embedUrl) {
+    return (
+      <div className="lesson-block lesson-block--video">
+        <p style={{ color: "var(--color-text-secondary)" }}>
+          Video unavailable. Continue with lesson.
+        </p>
+      </div>
+    );
+  }
+
+  // Keyed child component resets load/timeout state when URL changes.
+  return <VideoFrame key={embedUrl} embedUrl={embedUrl} title={title} />;
 }

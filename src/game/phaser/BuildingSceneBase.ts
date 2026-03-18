@@ -9,6 +9,7 @@ import {
 import type { InteriorObject } from "../types/interiorObject";
 import { useGameStore } from "../../store/useGameStore";
 import { createPlayer, type PlayerObject, PLAYER_DEFAULTS } from "./player";
+import { isUIInputCaptured } from "../systems/uiInputCapture";
 
 /**
  * BuildingSceneBase - Abstract base class for all building interior scenes
@@ -42,6 +43,9 @@ export abstract class BuildingSceneBase extends Phaser.Scene {
     d: Phaser.Input.Keyboard.Key;
   };
 
+  // Tracks whether we've disabled Phaser keyboard capture due to UI typing focus.
+  private keyboardCaptureDisabledForUI = false;
+
   constructor(sceneKey: string) {
     super(sceneKey);
   }
@@ -72,37 +76,64 @@ export abstract class BuildingSceneBase extends Phaser.Scene {
     // Setup input handlers (E to interact, etc.)
     this.setupInputHandlers();
 
+    // Safety: if the Scene shuts down while a DOM input is focused, ensure
+    // keyboard capture is restored for the next Scene.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.input.keyboard?.enableGlobalCapture();
+      this.keyboardCaptureDisabledForUI = false;
+    });
+
     this.events.emit("building-scene-created", { sceneKey: this.scene.key });
   }
 
   update() {
     if (!this.player?.body) return;
 
-    const speed = PLAYER_DEFAULTS.SPEED; // 180 px/sec
-    let vx = 0;
-    let vy = 0;
+    // If a DOM input is focused, let the browser handle key events for typing.
+    // Phaser key captures (enableCapture=true by default) can prevent characters
+    // like WASD/Tab from reaching the focused input.
+    const captured = isUIInputCaptured();
+    if (captured && !this.keyboardCaptureDisabledForUI) {
+      this.input.keyboard?.disableGlobalCapture();
+      this.keyboardCaptureDisabledForUI = true;
+    } else if (!captured && this.keyboardCaptureDisabledForUI) {
+      this.input.keyboard?.enableGlobalCapture();
+      this.keyboardCaptureDisabledForUI = false;
+    }
 
-    // Arrow keys
-    if (this.cursors.left?.isDown) vx -= 1;
-    if (this.cursors.right?.isDown) vx += 1;
-    if (this.cursors.up?.isDown) vy -= 1;
-    if (this.cursors.down?.isDown) vy += 1;
-
-    // WASD keys
-    if (this.wasdKeys.a?.isDown) vx -= 1;
-    if (this.wasdKeys.d?.isDown) vx += 1;
-    if (this.wasdKeys.w?.isDown) vy -= 1;
-    if (this.wasdKeys.s?.isDown) vy += 1;
-
-    // Normalize velocity and apply speed
-    if (vx !== 0 || vy !== 0) {
-      const magnitude = Math.sqrt(vx * vx + vy * vy);
-      this.player.body.setVelocity(
-        (vx / magnitude) * speed,
-        (vy / magnitude) * speed
-      );
-    } else {
+    // When the user is actively typing in an input/textarea/contenteditable element,
+    // ignore gameplay movement controls.
+    if (captured) {
       this.player.body.setVelocity(0, 0);
+    }
+
+    if (!captured) {
+      const speed = PLAYER_DEFAULTS.SPEED; // 180 px/sec
+      let vx = 0;
+      let vy = 0;
+
+      // Arrow keys
+      if (this.cursors.left?.isDown) vx -= 1;
+      if (this.cursors.right?.isDown) vx += 1;
+      if (this.cursors.up?.isDown) vy -= 1;
+      if (this.cursors.down?.isDown) vy += 1;
+
+      // WASD keys
+      if (this.wasdKeys.a?.isDown) vx -= 1;
+      if (this.wasdKeys.d?.isDown) vx += 1;
+      if (this.wasdKeys.w?.isDown) vy -= 1;
+      if (this.wasdKeys.s?.isDown) vy += 1;
+
+      // Normalize velocity and apply speed
+      if (vx !== 0 || vy !== 0) {
+        const magnitude = Math.sqrt(vx * vx + vy * vy);
+        this.player.body.setVelocity(
+          (vx / magnitude) * speed,
+          (vy / magnitude) * speed
+        );
+      } else {
+        this.player.body.setVelocity(0, 0);
+      }
     }
 
     // Calculate next position (current + velocity delta)
@@ -258,6 +289,7 @@ export abstract class BuildingSceneBase extends Phaser.Scene {
    */
   protected setupInputHandlers() {
     this.input.keyboard?.on("keydown-E", () => {
+      if (isUIInputCaptured()) return;
       this.checkAndHandleObjectInteraction();
     });
   }

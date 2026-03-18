@@ -3,6 +3,7 @@ import { useGameStore } from "../../store/useGameStore";
 import { MenuOverlay } from "./MenuOverlay";
 import { InteractionModal } from "./InteractionModal";
 import { LessonModal } from "./LessonModal";
+import { isTypingInEditableElement } from "../../game/systems/uiInputCapture";
 
 /**
  * HUD Component - Manages overlay modals and keyboard input
@@ -18,6 +19,11 @@ export function Hud() {
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // If the user is typing in an editable element, do not trigger gameplay/UI hotkeys.
+      if (isTypingInEditableElement(e.target)) {
+        return;
+      }
+
       // Toggle menu with M or Tab
       if (e.key === "m" || e.key === "M" || e.key === "Tab") {
         e.preventDefault();

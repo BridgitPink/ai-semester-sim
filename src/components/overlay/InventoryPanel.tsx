@@ -12,7 +12,7 @@ export function InventoryPanel() {
     inventory,
     closePanel,
     canUseItem,
-    useInventoryItem,
+    useInventoryItem: applyInventoryItem,
     getItemUsePreview,
   } = useGameStore();
   const [useMessage, setUseMessage] = useState<string | null>(null);
@@ -91,7 +91,7 @@ export function InventoryPanel() {
                     className="btn btn-small"
                     disabled={entry.quantity <= 0}
                     onClick={() => {
-                      const result = useInventoryItem(entry.itemId);
+                      const result = applyInventoryItem(entry.itemId);
                       setUseMessage(result.message);
                     }}
                   >

@@ -13,8 +13,17 @@ import type {
 } from "../game/types/player";
 import type { BasketItem, EconomyActionResult, InventoryItem } from "../game/types/item";
 import type { Semester } from "../game/types/semester";
-import type { CourseCompletion, Lesson } from "../game/types/course";
+import type { CourseCompletion, CourseId, Lesson } from "../game/types/course";
 import type { InteriorObject, ObjectInteractionType } from "../game/types/interiorObject";
+import type {
+  Assessment,
+  AssessmentAnswerValue,
+  AssessmentAnswers,
+  AssessmentResult,
+  GradedAttemptRecord,
+  PracticeAttemptRecord,
+} from "../game/types/assessment";
+import { getDefaultAssessmentWeight, scoreAssessment, validateAssessment } from "../game/systems/assessmentSystem";
 import {
   applyPlayerKnowledgeDelta,
   applyPlayerStatDelta,
@@ -200,10 +209,44 @@ export type LocationId =
   | "lab"
   | "advisor-office"
   | null;
-type PanelType = "none" | "location" | "npc" | "course" | "project" | "object" | "inventory";
+type PanelType =
+  | "none"
+  | "intro"
+  | "location"
+  | "npc"
+  | "course"
+  | "project"
+  | "object"
+  | "inventory";
 type SceneKey = "GameScene" | "ClassroomScene";
 type DayType = "class" | "lab" | "off";
 type FreeActionType = "rest" | "social" | "project" | "study" | "skip";
+
+type LessonSessionKind = "official" | "study";
+type LessonSessionPhase = "intro" | "content" | "assessment" | "results";
+
+type OpenOfficialLessonSessionOptions = {
+  startPhase?: LessonSessionPhase;
+};
+
+interface LessonSessionState {
+  kind: LessonSessionKind;
+  phase: LessonSessionPhase;
+  lessonId: string;
+  assessmentId?: string;
+  answers: AssessmentAnswers;
+  result?: AssessmentResult;
+  source?: "teacher-desk" | "course-panel" | "study";
+}
+
+interface CourseGradebook {
+  courseId: CourseId;
+  gradedAttempts: Record<string, GradedAttemptRecord>; // assessmentId -> record
+}
+
+interface PracticeHistory {
+  practiceAttempts: Record<string, PracticeAttemptRecord>; // assessmentId -> record
+}
 
 export interface RelationshipState {
   affinity: number; // 0-100
@@ -273,6 +316,13 @@ interface GameStore {
   // Lesson modal
   currentLesson: Lesson | null;
   lessonModalOpen: boolean;
+
+  // Lesson session flow (official lesson or study session)
+  lessonSession: LessonSessionState | null;
+
+  // Grade/progression records
+  gradebookByCourse: Partial<Record<CourseId, CourseGradebook>>;
+  practiceHistory: PracticeHistory;
   
   // Scene & world state
   currentScene: SceneKey;
@@ -301,6 +351,7 @@ interface GameStore {
   
   // Actions
   setLocation: (location: LocationId) => void;
+  openIntroPanel: () => void;
   openLocationPanel: (location: LocationId) => void;
   openNpcPanel: (npcId: string) => void;
   openCoursePanel: () => void;
@@ -316,6 +367,18 @@ interface GameStore {
   // Lesson modal actions
   openLessonModal: (lesson: Lesson) => void;
   closeLessonModal: () => void;
+
+  // Lesson session actions
+  openOfficialLessonSession: (
+    lessonId: string,
+    source?: LessonSessionState["source"],
+    options?: OpenOfficialLessonSessionOptions
+  ) => void;
+  openStudyLessonSession: (lessonId: string) => void;
+  setLessonSessionPhase: (phase: LessonSessionPhase) => void;
+  setAssessmentAnswer: (questionId: string, value: AssessmentAnswerValue) => void;
+  submitLessonSessionAssessment: () => { success: boolean; message: string };
+  getCourseGradePercent: (courseId: CourseId) => number | null;
   
   // Scene & building actions
   enterBuilding: (buildingId: LocationId, playerPos: PlayerPosition) => void;
@@ -391,6 +454,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // Lesson modal state
   currentLesson: null,
   lessonModalOpen: false,
+  lessonSession: null,
+  gradebookByCourse: {},
+  practiceHistory: {
+    practiceAttempts: {},
+  },
   
   // Scene & world state
   currentScene: "GameScene",
@@ -426,6 +494,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setLocation: (location) => set({ currentLocation: location }),
   
   // Action: panels
+  openIntroPanel: () =>
+    set({
+      activePanel: "intro",
+      selectedNpcId: null,
+      sleepConfirmationOpen: false,
+      objectModal: null,
+    }),
   openLocationPanel: (location) =>
     set({
       currentLocation: location,
@@ -494,16 +569,238 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }),
   
   // Action: lesson modal
-  openLessonModal: (lesson) =>
-    set({
-      currentLesson: lesson,
-      lessonModalOpen: true,
-    }),
+  openLessonModal: (lesson) => {
+    // Preserve existing call sites, but treat this as an official lesson session.
+    get().openOfficialLessonSession(lesson.id, "course-panel");
+  },
   closeLessonModal: () =>
     set({
       currentLesson: null,
       lessonModalOpen: false,
+      lessonSession: null,
     }),
+
+  openOfficialLessonSession: (lessonId, source = "teacher-desk", options) => {
+    const state = get();
+    const lesson = state.currentSemester?.courses
+      .flatMap((course) => course.lessons)
+      .find((item) => item.id === lessonId);
+
+    if (!lesson) {
+      console.warn(`Lesson not found: ${lessonId}`);
+      return;
+    }
+
+    // Clear interaction modal state to avoid overlapping overlays.
+    set({
+      activePanel: "none",
+      objectModal: null,
+      sleepConfirmationOpen: false,
+      currentLesson: lesson,
+      lessonModalOpen: true,
+      lessonSession: {
+        kind: "official",
+        phase: options?.startPhase ?? "intro",
+        lessonId,
+        answers: {},
+        source,
+      },
+    });
+  },
+
+  openStudyLessonSession: (lessonId) => {
+    const state = get();
+    const lesson = state.currentSemester?.courses
+      .flatMap((course) => course.lessons)
+      .find((item) => item.id === lessonId);
+
+    if (!lesson) {
+      console.warn(`Lesson not found: ${lessonId}`);
+      return;
+    }
+
+    if (!state.completedLessons.includes(lessonId)) {
+      console.warn(`Study disallowed for incomplete lesson: ${lessonId}`);
+      return;
+    }
+
+    set({
+      activePanel: "none",
+      objectModal: null,
+      sleepConfirmationOpen: false,
+      currentLesson: lesson,
+      lessonModalOpen: true,
+      lessonSession: {
+        kind: "study",
+        phase: "intro",
+        lessonId,
+        answers: {},
+        source: "study",
+      },
+    });
+  },
+
+  setLessonSessionPhase: (phase) => {
+    const state = get();
+    if (!state.lessonSession) return;
+    set({ lessonSession: { ...state.lessonSession, phase } });
+  },
+
+  setAssessmentAnswer: (questionId, value) => {
+    const state = get();
+    if (!state.lessonSession) return;
+    set({
+      lessonSession: {
+        ...state.lessonSession,
+        answers: {
+          ...state.lessonSession.answers,
+          [questionId]: value,
+        },
+      },
+    });
+  },
+
+  submitLessonSessionAssessment: () => {
+    const state = get();
+    const session = state.lessonSession;
+    if (!session) {
+      return { success: false, message: "No active lesson session." };
+    }
+
+    const lesson = state.currentSemester?.courses
+      .flatMap((course) => course.lessons)
+      .find((item) => item.id === session.lessonId);
+    if (!lesson) {
+      return { success: false, message: "Lesson data not found." };
+    }
+
+    const assessment: Assessment | undefined =
+      session.kind === "official" ? lesson.gradedAssessment : lesson.studyExtension?.practiceAssessment;
+
+    const validation = validateAssessment(assessment);
+    if (!assessment || !validation.isValid) {
+      // Fail gracefully: show a safe fallback results state.
+      set({
+        lessonSession: {
+          ...session,
+          phase: "results",
+          result: {
+            assessmentId: assessment?.id ?? "missing",
+            mode: session.kind === "official" ? "graded" : "practice",
+            breakdown: { correctCount: 0, totalCount: 0, scorePercent: 0 },
+            passed: undefined,
+            revealSolutions: true,
+            submittedAt: Date.now(),
+          },
+        },
+      });
+      return { success: false, message: "Assessment unavailable." };
+    }
+
+    if (session.kind === "official" && assessment.mode !== "graded") {
+      return { success: false, message: "Official sessions require graded assessments." };
+    }
+    if (session.kind === "study" && assessment.mode !== "practice") {
+      return { success: false, message: "Study sessions require practice assessments." };
+    }
+
+    // One-attempt lock for graded.
+    if (session.kind === "official") {
+      const existing = state.gradebookByCourse[assessment.courseId]?.gradedAttempts?.[assessment.id];
+      if (existing) {
+        set({
+          lessonSession: {
+            ...session,
+            phase: "results",
+            assessmentId: assessment.id,
+            result: existing.result,
+          },
+        });
+        return { success: true, message: "Assessment already submitted." };
+      }
+    }
+
+    const result = scoreAssessment(assessment, session.answers, {
+      revealSolutions: true,
+      submittedAt: Date.now(),
+    });
+
+    if (session.kind === "official") {
+      const weight = getDefaultAssessmentWeight(assessment);
+      const record: GradedAttemptRecord = {
+        assessmentId: assessment.id,
+        courseId: assessment.courseId,
+        lessonId: assessment.lessonId,
+        week: assessment.week,
+        type: assessment.type,
+        weight,
+        result,
+      };
+
+      const existingBook = state.gradebookByCourse[assessment.courseId];
+      const nextBook: CourseGradebook = {
+        courseId: assessment.courseId,
+        gradedAttempts: {
+          ...(existingBook?.gradedAttempts ?? {}),
+          [assessment.id]: record,
+        },
+      };
+
+      set({
+        gradebookByCourse: {
+          ...state.gradebookByCourse,
+          [assessment.courseId]: nextBook,
+        },
+      });
+    } else {
+      const record: PracticeAttemptRecord = {
+        assessmentId: assessment.id,
+        courseId: assessment.courseId,
+        lessonId: assessment.lessonId,
+        week: assessment.week,
+        type: assessment.type,
+        result,
+      };
+
+      set({
+        practiceHistory: {
+          practiceAttempts: {
+            ...state.practiceHistory.practiceAttempts,
+            [assessment.id]: record,
+          },
+        },
+      });
+    }
+
+    set({
+      lessonSession: {
+        ...session,
+        phase: "results",
+        assessmentId: assessment.id,
+        result,
+      },
+    });
+
+    return { success: true, message: "Assessment submitted." };
+  },
+
+  getCourseGradePercent: (courseId) => {
+    const state = get();
+    const attempts = state.gradebookByCourse[courseId]?.gradedAttempts;
+    if (!attempts) return null;
+
+    const rows = Object.values(attempts);
+    if (rows.length === 0) return null;
+
+    const totalWeight = rows.reduce((sum, row) => sum + Math.max(0, row.weight ?? 0), 0);
+    if (totalWeight <= 0) return null;
+
+    const weighted = rows.reduce(
+      (sum, row) => sum + row.result.breakdown.scorePercent * Math.max(0, row.weight ?? 0),
+      0
+    );
+    return Math.round(weighted / totalWeight);
+  },
   
   // Action: scene & building transitions
   enterBuilding: (buildingId, playerPos) =>
@@ -1199,6 +1496,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       storeBasket: [],
       lastWeeklyPayWeek: null,
       projectState: createProjectStateFromSemester(semester),
+      lessonSession: null,
+      gradebookByCourse: {},
+      practiceHistory: {
+        practiceAttempts: {},
+      },
       workbenchSubmission: {
         message: null,
         responseText: null,

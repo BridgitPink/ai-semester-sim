@@ -1,5 +1,6 @@
 import { useGameStore } from "../../store/useGameStore";
 import { StatBar } from "../ui/StarBar";
+import type { CourseId } from "../../game/types/course";
 
 export function CoursePanel() {
   const {
@@ -8,6 +9,9 @@ export function CoursePanel() {
     courseCompletions,
     completedLessons,
     openLessonModal,
+    openOfficialLessonSession,
+    gradebookByCourse,
+    getCourseGradePercent,
   } = useGameStore();
 
   // Get first incomplete course or the first course
@@ -59,6 +63,14 @@ export function CoursePanel() {
     );
   }
 
+  const courseId = activeCourse.courseId as CourseId;
+  const gradePercent = getCourseGradePercent(courseId);
+  const passingScore = 70;
+
+  const attemptRows = Object.values(gradebookByCourse[courseId]?.gradedAttempts ?? {}).sort(
+    (a, b) => (a.week ?? 0) - (b.week ?? 0)
+  );
+
   return (
     <>
       <div className="modal-header">
@@ -76,10 +88,34 @@ export function CoursePanel() {
           />
         </div>
 
+        {/* Gradebook (minimal) */}
+        <div className="lesson-block" style={{ marginTop: "12px" }}>
+          <h4 style={{ marginTop: 0 }}>Gradebook</h4>
+          <p style={{ margin: 0, color: "var(--color-text-secondary)" }}>
+            Grade-to-date: {gradePercent === null ? "—" : `${gradePercent}%`} (passing: {passingScore}%)
+          </p>
+          {attemptRows.length > 0 && (
+            <div style={{ marginTop: "8px" }}>
+              {attemptRows.map((row) => (
+                <div key={row.assessmentId} style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+                  Week {row.week} {row.type}: {row.result.breakdown.scorePercent}%
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Lessons */}
         <div className="lessons-grid">
           {courseData.lessons.map((lesson) => {
             const isCompleted = completedLessons.includes(lesson.id);
+
+            const isCheckpoint = lesson.gradedAssessment?.type === "checkpoint";
+            const checkpointAssessmentId = lesson.gradedAssessment?.id;
+            const checkpointSubmitted =
+              isCheckpoint &&
+              typeof checkpointAssessmentId === "string" &&
+              Boolean(gradebookByCourse[courseId]?.gradedAttempts?.[checkpointAssessmentId]);
 
             return (
               <div
@@ -98,6 +134,19 @@ export function CoursePanel() {
                 >
                   {isCompleted ? "Completed" : "Start Lesson"}
                 </button>
+
+                {isCheckpoint && (
+                  <button
+                    className="btn btn-small"
+                    style={{ marginTop: "6px" }}
+                    onClick={() =>
+                      openOfficialLessonSession(lesson.id, "course-panel", { startPhase: "assessment" })
+                    }
+                    disabled={!isCompleted || checkpointSubmitted}
+                  >
+                    {checkpointSubmitted ? "Checkpoint Submitted" : "Take Checkpoint"}
+                  </button>
+                )}
               </div>
             );
           })}
