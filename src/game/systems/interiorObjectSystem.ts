@@ -339,6 +339,16 @@ export function handleObjectInteraction(object: InteriorObject): void {
       break;
     }
 
+    case "course-goals": {
+      if (object.id === "lab-project-board") {
+        store.openProjectPanel("board");
+        break;
+      }
+
+      store.openProjectPanel("status");
+      break;
+    }
+
     case "leave-classroom": {
       // Exit building
       console.log("✓ Exiting classroom...");

@@ -48,6 +48,8 @@ export interface GameSavePayloadV1 {
   completedLessons: string[];
   npcRelationshipState: Record<string, RelationshipState>;
   projectState: ProjectState;
+  selectedProjectId?: string | null;
+  projectStatesById?: Record<string, ProjectState>;
   gradebookByCourse: Record<string, unknown>;
   practiceHistory: PracticeHistory;
   lessonWorkbenchBoostMultiplier: number;
@@ -103,6 +105,10 @@ function hasV1CoreShape(value: unknown): value is GameSavePayloadV1 {
     isStringArray(value.completedLessons) &&
     isObject(value.npcRelationshipState) &&
     isObject(value.projectState) &&
+    (value.selectedProjectId === undefined ||
+      value.selectedProjectId === null ||
+      typeof value.selectedProjectId === "string") &&
+    (value.projectStatesById === undefined || isObject(value.projectStatesById)) &&
     isObject(value.gradebookByCourse) &&
     isObject(value.practiceHistory) &&
     isFiniteNumber(value.lessonWorkbenchBoostMultiplier) &&

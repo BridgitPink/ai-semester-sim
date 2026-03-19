@@ -52,6 +52,13 @@ export type ProjectProgressCategoryKey =
   | "evaluation"
   | "interface";
 
+export type AssistantProjectPhase =
+  | "selected"
+  | "planning"
+  | "prototyping"
+  | "refining"
+  | "submitted";
+
 export type ProjectCapabilityKey =
   | "hasPromptTemplates"
   | "hasKnowledgeSource"
@@ -102,6 +109,12 @@ export interface ProjectState {
   progress: ProjectProgressState;
   capabilities: ProjectCapabilitiesState;
   milestones: ProjectMilestoneState[];
+  phase: AssistantProjectPhase;
+  phaseProgress: number;
+  completedPhaseMilestoneIds: string[];
+  submitted: boolean;
+  workbenchSubmissions: number;
+  lastUpdatedAt: string | null;
 
   unlockedFeatures: string[]; // feature IDs from FinalProjectTemplate.featurePool
   selectedTitle?: string;

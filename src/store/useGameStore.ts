@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type {
+  AssistantProjectPhase,
   ProjectCapabilitiesState,
   ProjectCapabilityKey,
   PlayerKnowledge,
@@ -59,6 +60,11 @@ import {
   getActiveLabProjectCategory,
   getWorkbenchProgressGain,
 } from "../game/systems/projectSystem";
+import {
+  ASSISTANT_PROJECT_DEFINITIONS,
+  getAssistantProjectDefinition,
+} from "../game/data/projects";
+import type { AssistantProjectDefinition } from "../game/types/project";
 
 const PROJECT_PROGRESS_KEYS: ProjectProgressCategoryKey[] = [
   "prompting",
@@ -176,14 +182,43 @@ function computeRuleDrivenCapabilities(
   return enabledByRules;
 }
 
-function createProjectStateFromSemester(semester: Semester | null): ProjectState {
+function getFirstAssistantProjectId() {
+  return ASSISTANT_PROJECT_DEFINITIONS[0]?.id ?? null;
+}
+
+function getFirstAssistantProjectDefinition(): AssistantProjectDefinition {
+  return (
+    ASSISTANT_PROJECT_DEFINITIONS[0] ?? {
+      id: "ai-study-helper",
+      title: "AI Study Helper",
+      shortDescription: "Build an AI assistant-style study support product.",
+      domainFocus: "Academic support",
+      outputType: "Structured assistant output",
+      learningGoals: [],
+      phases: [],
+      finalDeliverableDescription: "",
+      lessonPhaseGuidance: {},
+    }
+  );
+}
+
+function getPhaseCompletionTarget(
+  definition: AssistantProjectDefinition | null,
+  phase: AssistantProjectPhase
+): number {
+  const phaseConfig = definition?.phases.find((item) => item.id === phase);
+  return phaseConfig?.completionOverallProgress ?? 100;
+}
+
+function createProjectStateFromDefinition(
+  projectDefinition: AssistantProjectDefinition,
+  semester: Semester | null
+): ProjectState {
   const milestones = semester?.finalProjectTemplate.milestones ?? [];
   return {
-    id: semester?.finalProjectTemplate.id ?? "ai-study-helper",
-    name: semester?.finalProjectTemplate.name ?? "AI Study Helper",
-    description:
-      semester?.finalProjectTemplate.description ??
-      "Build an AI study helper project across the semester.",
+    id: projectDefinition.id,
+    name: projectDefinition.title,
+    description: projectDefinition.shortDescription,
     progress: createDefaultProjectProgress(),
     capabilities: createDefaultProjectCapabilities(),
     milestones: milestones.map((milestone) => ({
@@ -194,9 +229,44 @@ function createProjectStateFromSemester(semester: Semester | null): ProjectState
       requiredCapabilities: milestone.requiredCapabilities,
       isCompleted: false,
     })),
+    phase: "selected",
+    phaseProgress: 0,
+    completedPhaseMilestoneIds: [],
+    submitted: false,
+    workbenchSubmissions: 0,
+    lastUpdatedAt: null,
     unlockedFeatures: [],
     selectedFeatures: [],
   };
+}
+
+function createProjectStatesFromDefinitions(
+  semester: Semester | null
+): Record<string, ProjectState> {
+  return ASSISTANT_PROJECT_DEFINITIONS.reduce<Record<string, ProjectState>>((acc, definition) => {
+    acc[definition.id] = createProjectStateFromDefinition(definition, semester);
+    return acc;
+  }, {});
+}
+
+function getProjectStateById(
+  projectStatesById: Record<string, ProjectState>,
+  projectId: string | null
+): ProjectState | null {
+  if (!projectId) {
+    return null;
+  }
+  return projectStatesById[projectId] ?? null;
+}
+
+function getSafeActiveProjectId(
+  projectStatesById: Record<string, ProjectState>,
+  selectedProjectId: string | null
+): string | null {
+  if (selectedProjectId && projectStatesById[selectedProjectId]) {
+    return selectedProjectId;
+  }
+  return getFirstAssistantProjectId();
 }
 
 async function saveCheckpointAfterSleep() {
@@ -298,6 +368,8 @@ type ObjectModalVariant =
   | "shelf-browse"
   | "checkout";
 
+type ProjectPanelMode = "board" | "status";
+
 interface ObjectModalContext {
   variant: ObjectModalVariant;
   interactionType: ObjectInteractionType;
@@ -364,7 +436,10 @@ interface GameStore {
   
   // Relationships & projects
   npcRelationshipState: Record<string, RelationshipState>; // npcId -> relationship state
+  selectedProjectId: string | null;
+  projectStatesById: Record<string, ProjectState>;
   projectState: ProjectState;
+  projectPanelMode: ProjectPanelMode;
   workbenchSubmission: WorkbenchSubmissionState;
   lessonWorkbenchBoostMultiplier: number;
   lessonWorkbenchBoostUsesRemaining: number;
@@ -375,7 +450,7 @@ interface GameStore {
   openLocationPanel: (location: LocationId) => void;
   openNpcPanel: (npcId: string) => void;
   openCoursePanel: () => void;
-  openProjectPanel: () => void;
+  openProjectPanel: (mode?: ProjectPanelMode) => void;
   openInventoryPanel: () => void;
   closePanel: () => void;
   toggleMenu: () => void;
@@ -440,6 +515,12 @@ interface GameStore {
     delta: Partial<Record<ProjectProgressCategoryKey, number>>,
     capabilityUnlocks?: ProjectCapabilityKey[]
   ) => void;
+  setActiveProject: (projectId: string) => { success: boolean; message: string };
+  advanceActiveProjectPhaseFromWorkbench: () => {
+    advanced: boolean;
+    phase: AssistantProjectPhase | null;
+    message: string;
+  };
   setProjectCapability: (capability: ProjectCapabilityKey, enabled: boolean) => void;
   recomputeProjectState: () => void;
   markCourseMilestoneUnlocked: (courseId: string) => void;
@@ -500,7 +581,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   
   // Relationship & project state
   npcRelationshipState: {},
-  projectState: createProjectStateFromSemester(null),
+  selectedProjectId: null,
+  projectStatesById: createProjectStatesFromDefinitions(null),
+  projectState: createProjectStateFromDefinition(getFirstAssistantProjectDefinition(), null),
+  projectPanelMode: "status",
   workbenchSubmission: {
     message: null,
     responseText: null,
@@ -537,10 +621,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       activePanel: "course",
       selectedNpcId: null,
     }),
-  openProjectPanel: () =>
+  openProjectPanel: (mode = "status") =>
     set({
       activePanel: "project",
       selectedNpcId: null,
+      projectPanelMode: mode,
     }),
   openInventoryPanel: () =>
     set({
@@ -1110,6 +1195,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return result;
     }
 
+    if (!state.selectedProjectId) {
+      const result: WorkbenchSubmissionResult = {
+        success: false,
+        message: "No active project. Use the Project Board to select one first.",
+      };
+      set({
+        workbenchSubmission: {
+          message: result.message,
+          responseText: null,
+          category: null,
+          progressGain: 0,
+        },
+      });
+      return result;
+    }
+
     const activeCategory = getActiveLabProjectCategory();
     const gain = getWorkbenchProgressGain(
       template?.workbenchConfig.baseProgressGain,
@@ -1120,8 +1221,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
       [activeCategory]: gain,
     });
 
+    const progressedState = get();
+    const progressedProject = getProjectStateById(
+      progressedState.projectStatesById,
+      progressedState.selectedProjectId
+    );
+    if (progressedProject) {
+      const submissionUpdatedProject: ProjectState = {
+        ...progressedProject,
+        workbenchSubmissions: progressedProject.workbenchSubmissions + 1,
+        lastUpdatedAt: new Date().toISOString(),
+      };
+      set({
+        projectStatesById: {
+          ...progressedState.projectStatesById,
+          [submissionUpdatedProject.id]: submissionUpdatedProject,
+        },
+        projectState: submissionUpdatedProject,
+      });
+    }
+
+    const phaseResult = get().advanceActiveProjectPhaseFromWorkbench();
+
     const nextBoostUses = Math.max(0, state.lessonWorkbenchBoostUsesRemaining - 1);
-    const message = `Applied +${gain} to ${activeCategory}.`;
+    const message = `Applied +${gain} to ${activeCategory}. ${phaseResult.message}`;
 
     set({
       freeActionsRemaining: state.freeActionsRemaining - 1,
@@ -1329,7 +1452,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   applyProjectProgressDelta: (delta, capabilityUnlocks) => {
     const state = get();
-    const current = state.projectState;
+    if (!state.selectedProjectId) {
+      return;
+    }
+
+    const current = state.projectStatesById[state.selectedProjectId];
+    if (!current) {
+      return;
+    }
+
     const nextProgress: ProjectProgressState = {
       ...current.progress,
       prompting: clampPlayerValue(current.progress.prompting + (delta.prompting ?? 0)),
@@ -1350,29 +1481,189 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
 
     set({
+      projectStatesById: {
+        ...state.projectStatesById,
+        [current.id]: {
+          ...current,
+          progress: nextProgress,
+          capabilities: nextCapabilities,
+          lastUpdatedAt: new Date().toISOString(),
+        },
+      },
       projectState: {
         ...current,
         progress: nextProgress,
         capabilities: nextCapabilities,
+        lastUpdatedAt: new Date().toISOString(),
       },
     });
 
     get().recomputeProjectState();
   },
 
+  setActiveProject: (projectId) => {
+    const state = get();
+    const project = state.projectStatesById[projectId];
+    if (!project) {
+      return {
+        success: false,
+        message: "That project is unavailable.",
+      };
+    }
+
+    set({
+      selectedProjectId: projectId,
+      projectState: project,
+      projectPanelMode: "board",
+    });
+
+    get().recomputeProjectState();
+    return {
+      success: true,
+      message: `${project.name} is now your active project.`,
+    };
+  },
+
+  advanceActiveProjectPhaseFromWorkbench: () => {
+    const state = get();
+    if (!state.selectedProjectId) {
+      return {
+        advanced: false,
+        phase: null,
+        message: "Choose a project at the Project Board first.",
+      };
+    }
+
+    const project = state.projectStatesById[state.selectedProjectId];
+    if (!project) {
+      return {
+        advanced: false,
+        phase: null,
+        message: "Active project data is unavailable.",
+      };
+    }
+
+    const definition = getAssistantProjectDefinition(project.id);
+    if (!definition || definition.phases.length === 0) {
+      return {
+        advanced: false,
+        phase: project.phase,
+        message: "Project phase data is not configured.",
+      };
+    }
+
+    const phaseIndex = definition.phases.findIndex((phase) => phase.id === project.phase);
+    if (phaseIndex === -1 || phaseIndex >= definition.phases.length - 1) {
+      const submittedProject: ProjectState = {
+        ...project,
+        phase: "submitted",
+        submitted: true,
+        phaseProgress: 100,
+        lastUpdatedAt: new Date().toISOString(),
+      };
+      set({
+        projectStatesById: {
+          ...state.projectStatesById,
+          [submittedProject.id]: submittedProject,
+        },
+        projectState: submittedProject,
+      });
+      return {
+        advanced: false,
+        phase: submittedProject.phase,
+        message: "Project is already submitted.",
+      };
+    }
+
+    const currentPhase = definition.phases[phaseIndex];
+    const requiredProgress = currentPhase.completionOverallProgress ?? 100;
+    const needsMoreProgress = project.progress.overall < requiredProgress;
+    if (needsMoreProgress) {
+      const remaining = Math.max(0, requiredProgress - project.progress.overall);
+      const phaseProgress = Math.max(
+        0,
+        Math.min(99, Math.round((project.progress.overall / requiredProgress) * 100))
+      );
+      const updatedProject: ProjectState = {
+        ...project,
+        phaseProgress,
+        lastUpdatedAt: new Date().toISOString(),
+      };
+
+      set({
+        projectStatesById: {
+          ...state.projectStatesById,
+          [updatedProject.id]: updatedProject,
+        },
+        projectState: updatedProject,
+      });
+
+      return {
+        advanced: false,
+        phase: updatedProject.phase,
+        message: `${remaining} more overall progress needed to finish ${currentPhase.label}.`,
+      };
+    }
+
+    const nextPhase = definition.phases[phaseIndex + 1];
+    const completedMilestones = project.completedPhaseMilestoneIds.includes(currentPhase.id)
+      ? project.completedPhaseMilestoneIds
+      : [...project.completedPhaseMilestoneIds, currentPhase.id];
+    const movedToSubmitted = nextPhase.id === "submitted";
+    const updatedProject: ProjectState = {
+      ...project,
+      phase: nextPhase.id,
+      phaseProgress: movedToSubmitted ? 100 : 0,
+      completedPhaseMilestoneIds: completedMilestones,
+      submitted: movedToSubmitted,
+      lastUpdatedAt: new Date().toISOString(),
+    };
+
+    set({
+      projectStatesById: {
+        ...state.projectStatesById,
+        [updatedProject.id]: updatedProject,
+      },
+      projectState: updatedProject,
+    });
+
+    return {
+      advanced: true,
+      phase: updatedProject.phase,
+      message: `Phase advanced to ${nextPhase.label}.`,
+    };
+  },
+
   setProjectCapability: (capability, enabled) => {
     const state = get();
-    if (state.projectState.capabilities[capability] === enabled) {
+    if (!state.selectedProjectId) {
+      return;
+    }
+
+    const current = state.projectStatesById[state.selectedProjectId];
+    if (!current || current.capabilities[capability] === enabled) {
       return;
     }
 
     set({
+      projectStatesById: {
+        ...state.projectStatesById,
+        [current.id]: {
+          ...current,
+          capabilities: {
+            ...current.capabilities,
+            [capability]: enabled,
+          },
+          lastUpdatedAt: new Date().toISOString(),
+        },
+      },
       projectState: {
-        ...state.projectState,
+        ...current,
         capabilities: {
-          ...state.projectState.capabilities,
+          ...current.capabilities,
           [capability]: enabled,
         },
+        lastUpdatedAt: new Date().toISOString(),
       },
     });
 
@@ -1381,23 +1672,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   recomputeProjectState: () => {
     const state = get();
-    const overall = computeProjectOverallProgress(state.projectState.progress, state.currentSemester);
+    if (!state.selectedProjectId) {
+      set({ projectProgress: 0 });
+      return;
+    }
+
+    const activeProject = state.projectStatesById[state.selectedProjectId];
+    if (!activeProject) {
+      set({ projectProgress: 0 });
+      return;
+    }
+
+    const overall = computeProjectOverallProgress(activeProject.progress, state.currentSemester);
     const progress: ProjectProgressState = {
-      ...state.projectState.progress,
+      ...activeProject.progress,
       overall,
     };
 
     const interimMilestones = computeProjectMilestones(
       state.currentSemester,
       progress,
-      state.projectState.capabilities,
-      state.projectState.milestones
+      activeProject.capabilities,
+      activeProject.milestones
     );
 
     const ruleDriven = computeRuleDrivenCapabilities(state.currentSemester, progress, interimMilestones);
     const capabilities: ProjectCapabilitiesState = {
       ...createDefaultProjectCapabilities(),
-      ...state.projectState.capabilities,
+      ...activeProject.capabilities,
       ...ruleDriven,
     };
 
@@ -1405,16 +1707,32 @@ export const useGameStore = create<GameStore>((set, get) => ({
       state.currentSemester,
       progress,
       capabilities,
-      state.projectState.milestones
+      activeProject.milestones
     );
 
+    const definition = getAssistantProjectDefinition(activeProject.id);
+    const phaseTarget = getPhaseCompletionTarget(definition, activeProject.phase);
+    const phaseProgress =
+      activeProject.phase === "submitted"
+        ? 100
+        : Math.max(0, Math.min(99, Math.round((progress.overall / Math.max(1, phaseTarget)) * 100)));
+
+    const nextProjectState: ProjectState = {
+      ...activeProject,
+      progress,
+      capabilities,
+      milestones,
+      phaseProgress,
+      submitted: activeProject.phase === "submitted" || activeProject.submitted,
+      lastUpdatedAt: new Date().toISOString(),
+    };
+
     set({
-      projectState: {
-        ...state.projectState,
-        progress,
-        capabilities,
-        milestones,
+      projectStatesById: {
+        ...state.projectStatesById,
+        [nextProjectState.id]: nextProjectState,
       },
+      projectState: nextProjectState,
       projectProgress: progress.overall,
     });
   },
@@ -1434,39 +1752,85 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setProjectProgress: (value) => {
     const state = get();
+    if (!state.selectedProjectId) {
+      return;
+    }
+
+    const current = state.projectStatesById[state.selectedProjectId];
+    if (!current) {
+      return;
+    }
+
     const clamped = clampPlayerValue(value);
-    set({
-      projectProgress: clamped,
-      projectState: {
-        ...state.projectState,
-        progress: {
-          ...state.projectState.progress,
-          overall: clamped,
-        },
+    const updatedProject: ProjectState = {
+      ...current,
+      progress: {
+        ...current.progress,
+        overall: clamped,
       },
+      lastUpdatedAt: new Date().toISOString(),
+    };
+
+    set({
+      projectStatesById: {
+        ...state.projectStatesById,
+        [updatedProject.id]: updatedProject,
+      },
+      projectProgress: clamped,
+      projectState: updatedProject,
     });
   },
   
   // Action: project
   unlockProjectFeature: (featureId) => {
     const state = get();
-    if (!state.projectState.unlockedFeatures.includes(featureId)) {
-      set({
-        projectState: {
-          ...state.projectState,
-          unlockedFeatures: [...state.projectState.unlockedFeatures, featureId],
-        },
-      });
+    if (!state.selectedProjectId) {
+      return;
     }
+
+    const current = state.projectStatesById[state.selectedProjectId];
+    if (!current || current.unlockedFeatures.includes(featureId)) {
+      return;
+    }
+
+    const updatedProject: ProjectState = {
+      ...current,
+      unlockedFeatures: [...current.unlockedFeatures, featureId],
+      lastUpdatedAt: new Date().toISOString(),
+    };
+
+    set({
+      projectStatesById: {
+        ...state.projectStatesById,
+        [updatedProject.id]: updatedProject,
+      },
+      projectState: updatedProject,
+    });
   },
   
   setProjectState: (updates) => {
     const state = get();
+    if (!state.selectedProjectId) {
+      return;
+    }
+
+    const current = state.projectStatesById[state.selectedProjectId];
+    if (!current) {
+      return;
+    }
+
+    const updatedProject: ProjectState = {
+      ...current,
+      ...updates,
+      lastUpdatedAt: new Date().toISOString(),
+    };
+
     set({
-      projectState: {
-        ...state.projectState,
-        ...updates,
+      projectStatesById: {
+        ...state.projectStatesById,
+        [updatedProject.id]: updatedProject,
       },
+      projectState: updatedProject,
     });
   },
   
@@ -1500,6 +1864,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     
     const npcRelationshipState: Record<string, RelationshipState> = {};
     
+    const projectStatesById = createProjectStatesFromDefinitions(semester);
+    const fallbackProjectId = getSafeActiveProjectId(projectStatesById, null);
+    const fallbackProject = getProjectStateById(projectStatesById, fallbackProjectId);
+
     set({
       currentSemester: semester,
       courseCompletions,
@@ -1518,7 +1886,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       inventory: [],
       storeBasket: [],
       lastWeeklyPayWeek: null,
-      projectState: createProjectStateFromSemester(semester),
+      selectedProjectId: null,
+      projectStatesById,
+      projectState:
+        fallbackProject ??
+        createProjectStateFromDefinition(getFirstAssistantProjectDefinition(), semester),
+      projectPanelMode: "status",
       lessonSession: null,
       gradebookByCourse: {},
       practiceHistory: {

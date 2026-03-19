@@ -135,6 +135,13 @@ export function canUseWorkbench(): WorkbenchEligibility {
   const isThursday = normalizedDayOfWeek === 4;
   const isFriday = normalizedDayOfWeek === 5;
 
+  if (!state.selectedProjectId) {
+    return {
+      canUse: false,
+      reason: "Select an active project at the Project Board first.",
+    };
+  }
+
   if (state.currentBuilding !== "lab") {
     return {
       canUse: false,

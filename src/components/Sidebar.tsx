@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useGameStore } from "../store/useGameStore";
 import { StatBar } from "./ui/StarBar";
+import { getAssistantProjectDefinition } from "../game/data/projects";
 import {
   getAcademicReadiness,
   getPrimaryGameplayStats,
@@ -23,8 +24,12 @@ export function Sidebar() {
   const [activeTab, setActiveTab] = useState<TabType>("stats");
   const {
     courseCompletions,
-    projectState,
+    selectedProjectId,
+    projectStatesById,
   } = useGameStore();
+
+  const activeProject = selectedProjectId ? projectStatesById[selectedProjectId] ?? null : null;
+  const activeDefinition = activeProject ? getAssistantProjectDefinition(activeProject.id) : null;
 
   const sidebarStatus = getSidebarStatusSummary();
   const primaryGameplayStats = getPrimaryGameplayStats();
@@ -149,38 +154,36 @@ export function Sidebar() {
         {activeTab === "project" && (
           <div className="sidebar-section">
             <h2>Final Project</h2>
-            {projectState ? (
+            {activeProject && activeDefinition ? (
               <div className="sidebar-project">
+                <div className="project-item">
+                  <div className="project-label">Active</div>
+                  <div className="project-value">{activeDefinition.title}</div>
+                </div>
+                <div className="project-item">
+                  <div className="project-label">Phase</div>
+                  <div className="project-value">{activeProject.phase}</div>
+                </div>
                 <div className="project-item">
                   <div className="project-label">Progress</div>
                   <div className="project-value">
-                    {Object.keys(projectState.unlockedFeatures || {}).length} 
-                    {" "}features unlocked
+                    {activeProject.progress.overall}% overall
                   </div>
                 </div>
-                {projectState.unlockedFeatures && (
+                {activeProject.unlockedFeatures.length > 0 && (
                   <div className="project-features">
-                    {Object.entries(projectState.unlockedFeatures).map(
-                      ([featureId, unlocked]) => (
-                        <div
-                          key={featureId}
-                          className={`feature-item ${
-                            unlocked ? "unlocked" : "locked"
-                          }`}
-                        >
-                          <span className="feature-icon">
-                            {unlocked ? "✓" : "○"}
-                          </span>
-                          <span className="feature-name">{featureId}</span>
-                        </div>
-                      )
-                    )}
+                    {activeProject.unlockedFeatures.slice(0, 4).map((featureId) => (
+                      <div key={featureId} className="feature-item unlocked">
+                        <span className="feature-icon">✓</span>
+                        <span className="feature-name">{featureId}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
             ) : (
               <div className="sidebar-empty">
-                <p>No project data available.</p>
+                <p>Select a project at the lab Project Board.</p>
               </div>
             )}
           </div>

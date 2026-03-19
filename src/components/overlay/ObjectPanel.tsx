@@ -4,6 +4,7 @@ import { canSleepNow, getCurrentDayType } from "../../game/systems/timeSystem";
 import { getActionEffects } from "../../game/systems/freeActionSystem";
 import { getCounterMenuItems, getStoreShelfItems } from "../../game/data/items/menus";
 import { getItemDefinition } from "../../game/data/items/catalog";
+import { getAssistantProjectDefinition } from "../../game/data/projects";
 
 function formatMoney(value: number): string {
   return `$${value}`;
@@ -42,6 +43,8 @@ export function ObjectPanel() {
     workbenchSubmission,
     submitProjectWorkbenchInput,
     clearWorkbenchSubmissionFeedback,
+    selectedProjectId,
+    projectStatesById,
   } = useGameStore();
   const [commerceMessage, setCommerceMessage] = useState<string | null>(null);
   const [workbenchInput, setWorkbenchInput] = useState("");
@@ -50,6 +53,8 @@ export function ObjectPanel() {
   const dayType = getCurrentDayType();
   const sleepAllowed = canSleepNow();
   const basketTotal = getBasketTotal();
+  const activeProject = selectedProjectId ? projectStatesById[selectedProjectId] ?? null : null;
+  const activeProjectDefinition = activeProject ? getAssistantProjectDefinition(activeProject.id) : null;
 
   const canSpendFreeAction = freeActionsRemaining > 0;
 
@@ -309,6 +314,18 @@ export function ObjectPanel() {
           <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "8px" }}>
             Free actions remaining: {freeActionsRemaining}/3
           </p>
+
+          {!activeProject && (
+            <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "8px" }}>
+              No active project selected. Visit the Project Board in the lab and select AI Study Helper or AI Career Helper first.
+            </p>
+          )}
+
+          {activeProject && activeProjectDefinition && (
+            <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", marginBottom: "8px" }}>
+              Active project: {activeProjectDefinition.title} • Phase: {activeProject.phase}
+            </p>
+          )}
 
           <textarea
             value={workbenchInput}

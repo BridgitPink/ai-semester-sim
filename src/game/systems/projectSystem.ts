@@ -11,6 +11,14 @@ import { getDefaultProjectCategoryForLabStage } from "../data/labStages";
 import { getEnergyModifier, getStressPenalty } from "./playerSelectors";
 import type { FreeActionType } from "./freeActionSystem";
 
+function getActiveProjectStateSnapshot(): ProjectState | null {
+  const state = useGameStore.getState();
+  if (!state.selectedProjectId) {
+    return null;
+  }
+  return state.projectStatesById[state.selectedProjectId] ?? null;
+}
+
 function getLessonProgressFallback(courseId: string): Partial<Record<ProjectProgressCategoryKey, number>> {
   switch (courseId) {
     case "ai-foundations":
@@ -114,7 +122,17 @@ export function applyFreeActionProjectProgress(actionType: FreeActionType) {
 }
 
 export function getProjectCategoryProgress(): Record<ProjectProgressCategoryKey, number> {
-  const projectState = useGameStore.getState().projectState;
+  const projectState = getActiveProjectStateSnapshot();
+  if (!projectState) {
+    return {
+      prompting: 0,
+      retrieval: 0,
+      knowledgeBase: 0,
+      evaluation: 0,
+      interface: 0,
+    };
+  }
+
   return {
     prompting: projectState.progress.prompting,
     retrieval: projectState.progress.retrieval,
@@ -125,33 +143,50 @@ export function getProjectCategoryProgress(): Record<ProjectProgressCategoryKey,
 }
 
 export function getProjectCapabilities(): Record<ProjectCapabilityKey, boolean> {
+  const projectState = getActiveProjectStateSnapshot();
+  if (!projectState) {
+    return {
+      hasPromptTemplates: false,
+      hasKnowledgeSource: false,
+      hasRetrievalLayer: false,
+      hasEmbeddings: false,
+      hasVectorDb: false,
+      hasDocumentUpload: false,
+      hasDashboard: false,
+      hasEvaluationMetrics: false,
+    };
+  }
+
   return {
-    ...useGameStore.getState().projectState.capabilities,
+    ...projectState.capabilities,
   };
 }
 
 export function getProjectMilestones() {
-  return useGameStore.getState().projectState.milestones;
+  return getActiveProjectStateSnapshot()?.milestones ?? [];
 }
 
 export function getProjectOverallProgress(): number {
-  return useGameStore.getState().projectState.progress.overall;
+  return getActiveProjectStateSnapshot()?.progress.overall ?? 0;
 }
 
 /**
  * Get the current project state
  */
 export function getProjectState(): ProjectState {
-  return useGameStore.getState().projectState;
+  const state = useGameStore.getState();
+  const active = getActiveProjectStateSnapshot();
+  return active ?? state.projectState;
 }
 
 /**
  * Get percentage of project features unlocked (0-100)
  */
 export function getProjectUnlockPercent(): number {
-  const { projectState, currentSemester } = useGameStore.getState();
+  const { currentSemester } = useGameStore.getState();
+  const projectState = getActiveProjectStateSnapshot();
   
-  if (!currentSemester) return 0;
+  if (!currentSemester || !projectState) return 0;
   
   const totalFeatures = currentSemester.finalProjectTemplate.featurePool.length;
   const unlockedCount = projectState.unlockedFeatures.length;
@@ -166,9 +201,10 @@ export function getProjectUnlockPercent(): number {
  * Returns formatted project export ready for copy-paste to GitHub
  */
 export function exportProject(): string {
-  const { projectState, currentSemester } = useGameStore.getState();
+  const { currentSemester } = useGameStore.getState();
+  const projectState = getActiveProjectStateSnapshot();
   
-  if (!currentSemester) return "";
+  if (!currentSemester || !projectState) return "";
   
   const template = currentSemester.finalProjectTemplate;
   
@@ -195,7 +231,10 @@ ${template.techStack.join(", ")}
  * Validate project is ready for export (minimum required sections filled)
  */
 export function canExportProject(): boolean {
-  const { projectState } = useGameStore.getState();
+  const projectState = getActiveProjectStateSnapshot();
+  if (!projectState) {
+    return false;
+  }
   
   // MVP: requires at least title and problem statement
   return !!(projectState.selectedTitle && projectState.selectedProblemStatement);

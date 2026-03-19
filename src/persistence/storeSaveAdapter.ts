@@ -34,6 +34,8 @@ export function createGameSavePayload(): GameSavePayload | null {
     completedLessons: state.completedLessons,
     npcRelationshipState: state.npcRelationshipState,
     projectState: state.projectState,
+    selectedProjectId: state.selectedProjectId,
+    projectStatesById: state.projectStatesById,
     gradebookByCourse: state.gradebookByCourse,
     practiceHistory: state.practiceHistory,
     lessonWorkbenchBoostMultiplier: state.lessonWorkbenchBoostMultiplier,
@@ -58,6 +60,12 @@ export function applyGameSavePayload(payload: GameSavePayload): boolean {
   store.initializeSemester(semester);
 
   const mergedRelationshipState = { ...store.npcRelationshipState, ...payload.npcRelationshipState };
+  const hydratedProjectStates = payload.projectStatesById ?? store.projectStatesById;
+  const hydratedSelectedProjectId =
+    payload.selectedProjectId !== undefined ? payload.selectedProjectId : store.selectedProjectId;
+  const hydratedActiveProject =
+    (hydratedSelectedProjectId ? hydratedProjectStates[hydratedSelectedProjectId] : null) ??
+    payload.projectState;
 
   // Ensure relationship records exist for all known NPCs.
   npcProfiles.forEach((npc) => {
@@ -87,7 +95,9 @@ export function applyGameSavePayload(payload: GameSavePayload): boolean {
     courseCompletions: payload.courseCompletions,
     completedLessons: payload.completedLessons,
     npcRelationshipState: mergedRelationshipState,
-    projectState: payload.projectState,
+    selectedProjectId: hydratedSelectedProjectId,
+    projectStatesById: hydratedProjectStates,
+    projectState: hydratedActiveProject,
     gradebookByCourse: payload.gradebookByCourse,
     practiceHistory: payload.practiceHistory,
     lessonWorkbenchBoostMultiplier: payload.lessonWorkbenchBoostMultiplier,
@@ -120,6 +130,8 @@ export function createAutosaveSignature() {
     courseCompletions: state.courseCompletions,
     projectProgress: state.projectProgress,
     projectState: state.projectState,
+    selectedProjectId: state.selectedProjectId,
+    projectStatesById: state.projectStatesById,
     gradebookByCourse: state.gradebookByCourse,
     practiceHistory: state.practiceHistory,
     wallet: state.wallet,
